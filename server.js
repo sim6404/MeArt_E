@@ -10,7 +10,18 @@ const axios = require('axios');
 const FormData = require('form-data');
 const { execSync } = require('child_process');
 const crypto = require('crypto'); // 파일 해시 계산용
-const mime = require('mime'); // MIME 타입 감지용
+// MIME 타입 감지를 위한 간단한 맵 (호환성 개선)
+const mimeTypes = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+    '.json': 'application/json',
+    '.js': 'application/javascript',
+    '.html': 'text/html',
+    '.css': 'text/css'
+};
 
 // 환경 변수 설정 (Render 배포 최적화)
 const PORT = process.env.PORT || 9000;
@@ -2307,7 +2318,7 @@ app.get('/uploads/:filename', (req, res) => {
         return res.status(404).send('File not found');
     }
     const ext = path.extname(filePath).toLowerCase();
-    const contentType = mime.getType(ext) || 'application/octet-stream';
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
     res.setHeader('Content-Type', contentType);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
