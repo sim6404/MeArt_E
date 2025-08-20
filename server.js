@@ -1273,7 +1273,7 @@ app.post('/api/apply-brush-effect', async (req, res) => {
         console.log('🎨 Python 브러시 효과 스크립트 실행:', brushPath);
         
         try {
-            await runPythonScript('brush_effect.py', [nobgAbsPath, brushPath]);
+            await runPythonScript('brush_effect_light.py', [nobgAbsPath, brushPath]);
         } catch (pythonError) {
             console.error('❌ Python 브러시 효과 스크립트 실행 실패:', pythonError);
             throw new Error(`브러시 효과 스크립트 실행 실패: ${pythonError.message}`);
@@ -1384,7 +1384,7 @@ async function processImagePipeline({ inputPath, outputPath, emotion, background
     
     // 2. 브러쉬 효과 + 합성 (Sharp 사용)
     const brushPath = nobgPath.replace('_nobg.png', '_brush.png');
-    await runPythonScript('brush_effect.py', [nobgPath, brushPath]);
+    await runPythonScript('brush_effect_light.py', [nobgPath, brushPath]);
     
     // Sharp로 합성
     const sharp = require('sharp');
@@ -1729,7 +1729,7 @@ app.post('/api/brush-effect-only', upload.single('image'), async (req, res) => {
         const ext = path.extname(req.file.originalname) || '.png';
         const baseName = path.basename(req.file.filename, path.extname(req.file.filename));
         const brushedPath = path.join('uploads', `${baseName}_brush.png`);
-        await runPythonScript('brush_effect.py', [req.file.path, brushedPath]);
+        await runPythonScript('brush_effect_light.py', [req.file.path, brushedPath]);
         if (!fs.existsSync(brushedPath)) throw new Error('브러쉬 효과 적용 실패');
         // 임시 파일 정리 (원본)
         fs.promises.unlink(req.file.path).catch(()=>{});
@@ -1772,7 +1772,7 @@ app.post('/api/brush-composite', upload.single('image'), async (req, res) => {
         await fs.promises.access(nobgPath, fs.constants.F_OK).catch(() => { throw new Error('배경 제거 실패'); });
         
         // 2. 브러쉬 효과 (Python 직접 실행)
-        await runPythonScript('brush_effect.py', [nobgPath, brushPath]);
+        await runPythonScript('brush_effect_light.py', [nobgPath, brushPath]);
         await fs.promises.access(brushPath, fs.constants.F_OK).catch(() => { throw new Error('브러쉬 효과 적용 실패'); });
         // 3. 배경 합성 (Sharp 사용)
         const sharp = require('sharp');

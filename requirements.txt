@@ -1,19 +1,15 @@
-# AI 및 이미지 처리 핵심 라이브러리 (Render 호환 버전)
+# AI 및 이미지 처리 핵심 라이브러리 (TensorFlow 제거, 경량화)
 opencv-python-headless==4.8.0.76
 pillow==9.5.0
 numpy==1.24.3
 
-# ONNX 모델 추론
+# ONNX 모델 추론 (감정 분석용)
 onnxruntime==1.15.1
 
-# 배경 제거 라이브러리  
+# 배경 제거 라이브러리
 rembg==2.0.50
 
-# TensorFlow (Neural Style Transfer용) - 안정 버전
-tensorflow==2.12.0
-tensorflow-hub==0.13.0
-
-# 이미지 처리 유틸리티
+# 이미지 처리 및 필터 효과 (TensorFlow 대체)
 scikit-image==0.20.0
 imageio==2.31.1
 
