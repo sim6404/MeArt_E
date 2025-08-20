@@ -12,15 +12,9 @@ RUN apk add --no-cache \
     jpeg-dev \
     zlib-dev
 
-# Python 가상환경 없이 직접 설치
-RUN pip3 install --no-cache-dir --break-system-packages \
-    tensorflow==2.13.0 \
-    tensorflow-hub==0.14.0 \
-    pillow==10.0.0 \
-    numpy==1.24.3 \
-    opencv-python-headless==4.8.0.76 \
-    onnxruntime==1.15.1 \
-    rembg==2.0.50
+# Python 의존성 설치 (requirements.txt 기반)
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # 작업 디렉토리 설정
 WORKDIR /app
