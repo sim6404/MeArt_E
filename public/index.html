@@ -1,0 +1,4239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeArt - AI 아트 생성기</title>
+    <!-- Google Fonts: Pretendard, Inter, Noto Sans 등 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    
+    <!-- 🔧 인트로 버튼용 즉시 사용 가능한 함수들 -->
+    <script>
+        // Firebase 인증 함수들을 즉시 로드
+        function showLoginModal() {
+            console.log('🔘 showLoginModal 호출됨');
+            
+            // 모든 요소 존재 확인
+            const modal = document.getElementById('authModal');
+            const title = document.getElementById('authModalTitle');
+            const submitBtn = document.getElementById('authSubmitBtn');
+            const username = document.getElementById('authUsername');
+            const form = document.getElementById('authForm');
+            
+            console.log('🔍 모달 요소 확인:', {
+                modal: !!modal,
+                title: !!title,
+                submitBtn: !!submitBtn,
+                username: !!username,
+                form: !!form
+            });
+            
+            if (!modal) {
+                console.error('❌ authModal 요소를 찾을 수 없습니다!');
+                alert('로그인 모달을 찾을 수 없습니다. 페이지를 새로고침해주세요.');
+                return;
+            }
+            
+            // 모달 설정
+            if (title) title.textContent = '로그인';
+            if (submitBtn) submitBtn.textContent = '로그인';
+            if (username) {
+                username.style.display = 'none';
+                username.removeAttribute('required');
+            }
+            if (form) form.onsubmit = handleLogin;
+            
+            // 모달 표시 (강제로 최상위에 표시)
+            modal.style.display = 'flex';
+            modal.style.position = 'fixed';
+            modal.style.zIndex = '999999';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100vw';
+            modal.style.height = '100vh';
+            console.log('✅ 로그인 모달 표시 완료');
+        }
+
+        function showSignupModal() {
+            console.log('🔘 showSignupModal 호출됨');
+            document.getElementById('authModalTitle').textContent = '회원가입';
+            document.getElementById('authSubmitBtn').textContent = '회원가입';
+            document.getElementById('authUsername').style.display = 'block';
+            document.getElementById('authUsername').setAttribute('required', 'required');
+            document.getElementById('authForm').onsubmit = handleSignup;
+            document.getElementById('authModal').style.display = 'flex';
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModal').style.display = 'none';
+            document.getElementById('authForm').reset();
+            // required 속성 초기화
+            document.getElementById('authUsername').removeAttribute('required');
+            document.getElementById('authUsername').style.display = 'none';
+        }
+
+        // 전역 함수로 등록
+        window.showLoginModal = showLoginModal;
+        window.showSignupModal = showSignupModal;
+        window.closeAuthModal = closeAuthModal;
+    </script>
+
+    
+    <style>
+        :root {
+            /* 🎨 색상 시스템 */
+            --primary: #6366f1;
+            --primary-light: #818cf8;
+            --primary-dark: #4f46e5;
+            --primary-50: rgba(99, 102, 241, 0.05);
+            --primary-100: rgba(99, 102, 241, 0.1);
+            --primary-500: rgba(99, 102, 241, 0.5);
+            
+            --accent: #f59e0b;
+            --accent-light: #fbbf24;
+            --accent-dark: #d97706;
+            
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+            
+            /* 🌈 배경 & 표면 */
+            --background: #f8fafc;
+            --background-secondary: #f1f5f9;
+            --surface: #ffffff;
+            --surface-secondary: #f8fafc;
+            --surface-elevated: #ffffff;
+            
+            /* 📝 텍스트 */
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-tertiary: #64748b;
+            --text-disabled: #94a3b8;
+            --text-on-primary: #ffffff;
+            
+            /* 🔲 경계선 */
+            --border-primary: #e2e8f0;
+            --border-secondary: #cbd5e1;
+            --border-focus: var(--primary);
+            
+            /* 🌊 그림자 */
+            --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+            
+            /* 📐 둥근 모서리 */
+            --radius-xs: 4px;
+            --radius-sm: 8px;
+            --radius: 12px;
+            --radius-md: 16px;
+            --radius-lg: 20px;
+            --radius-xl: 24px;
+            --radius-full: 9999px;
+            
+            /* 📏 간격 */
+            --space-xs: 0.25rem;
+            --space-sm: 0.5rem;
+            --space: 1rem;
+            --space-md: 1.5rem;
+            --space-lg: 2rem;
+            --space-xl: 3rem;
+            --space-2xl: 4rem;
+            
+            /* ✨ 애니메이션 */
+            --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-slow: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+            --ease-out: cubic-bezier(0, 0, 0.2, 1);
+            --ease-in: cubic-bezier(0.4, 0, 1, 1);
+            
+            /* 🎨 그라디언트 */
+            --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-surface: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+            
+            /* 📱 모바일 최적화 */
+            --touch-target: 44px;
+            --mobile-padding: 1rem;
+            --mobile-gap: 0.75rem;
+        }
+        /* 🏗️ 기본 레이아웃 */
+        * {
+            box-sizing: border-box;
+        }
+        
+        html {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+        }
+        
+        html, body {
+            font-family: 'Inter', 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--background);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+            font-size: 16px;
+            scroll-behavior: smooth;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: var(--gradient-surface);
+            overflow-x: hidden;
+        }
+        
+        /* 🎯 포커스 접근성 */
+        *:focus {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+        
+        /* 📱 터치 최적화 */
+        @media (hover: none) and (pointer: coarse) {
+            * {
+                -webkit-tap-highlight-color: transparent;
+            }
+        }
+        
+        /* 🔧 모바일 화면 전환 강제 처리 */
+        .intro-screen.hidden-force {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            z-index: -9999 !important;
+            position: absolute !important;
+            top: -9999px !important;
+            left: -9999px !important;
+            pointer-events: none !important;
+        }
+        /* 🧭 네비게이션 */
+        .nav {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: var(--shadow-sm);
+            border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space) var(--space-lg);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-primary);
+            transition: var(--transition);
+        }
+        
+        .nav:hover {
+            box-shadow: var(--shadow-md);
+        }
+        .nav-logo {
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -1.5px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .nav-logo-img {
+            height: 4.4rem; /* 2.2rem → 4.4rem으로 2배 증가 */
+            width: auto;
+        }
+        .nav-menu {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .nav-menu button, .nav-menu .btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 0.95rem;
+            padding: 0.7rem 1.5rem;
+            border-radius: var(--radius);
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+        .nav-menu button.active, .nav-menu .btn.active, .nav-menu button:hover, .nav-menu .btn:hover {
+            background: var(--gradient-primary);
+            color: #fff;
+            border-color: transparent;
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+        .nav-avatar {
+            min-width: 38px; height: 38px;
+            border-radius: 999px;
+            background: var(--primary);
+            color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 600; font-size: 0.98rem;
+            margin-left: 0.7rem;
+            padding: 0 1.2rem;
+            box-shadow: 0 2px 8px rgba(90,111,240,0.08);
+            border: none;
+            transition: var(--transition);
+            cursor: pointer;
+        }
+        .nav-avatar:hover {
+            background: var(--primary-dark);
+        }
+        /* 📦 컨테이너 & 카드 */
+        .container {
+            max-width: 600px;
+            margin: var(--space-lg) auto 0 auto;
+            padding: 0 var(--mobile-padding) var(--space-xl) var(--mobile-padding);
+        }
+        
+        .card {
+            background: var(--surface-elevated);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+            padding: var(--space-xl) var(--space-lg) var(--space-lg) var(--space-lg);
+            margin-bottom: var(--space-xl);
+            transition: var(--transition);
+            border: 1px solid var(--border-primary);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-xl);
+        }
+        
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-primary);
+        }
+        
+        .card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--gradient-glass);
+            opacity: 0;
+            transition: var(--transition);
+            pointer-events: none;
+        }
+        
+        .card:hover::after {
+            opacity: 1;
+        }
+        .card-title {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: 1.5rem;
+            text-align: center;
+            position: relative;
+        }
+        .upload-area {
+            border: 2.5px dashed var(--primary);
+            border-radius: var(--radius);
+            background: #f3f6ff;
+            padding: 2.5rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-bottom: 1.2rem;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            background: #e7eaff;
+            border-color: var(--accent);
+        }
+        .upload-icon {
+            font-size: 2.7rem;
+            color: var(--primary);
+            margin-bottom: 0.7rem;
+        }
+        .upload-text {
+            font-size: 1.1rem;
+            color: #444;
+            margin-bottom: 0.3rem;
+        }
+        .upload-hint {
+            font-size: 0.92rem;
+            color: #888;
+        }
+        #fileInput { display: none; }
+        .image-preview {
+            display: flex !important;
+            gap: 1.2rem;
+            justify-content: center !important;
+            margin: 1.2rem auto 0.5rem auto !important;
+            flex-wrap: wrap;
+            align-items: center !important;
+        }
+        .preview-container {
+            text-align: center !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            /* 추가: 더 명확한 중앙 정렬 */
+            width: 100% !important;
+            max-width: 300px !important;
+            min-height: 220px;
+            margin: 0 auto !important;
+        }
+        .preview-image {
+            max-width: 180px;
+            max-height: 180px;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(60,60,120,0.08);
+            border: 2px solid #f0f0f0;
+            object-fit: contain !important;
+            /* 추가: 완벽한 중앙 정렬 */
+            display: block !important;
+            margin: 0 auto !important;
+            object-position: center center !important;
+        }
+        .controls {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin: 1.2rem 0 0.5rem 0;
+            flex-wrap: wrap;
+        }
+        /* 🔘 버튼 시스템 */
+        .btn {
+            /* 기본 스타일 */
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: var(--radius);
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 600;
+            line-height: 1.5;
+            cursor: pointer;
+            transition: var(--transition);
+            background: var(--gradient-primary);
+            color: var(--text-on-primary);
+            box-shadow: var(--shadow-sm);
+            
+            /* 레이아웃 */
+            position: relative;
+            overflow: hidden;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--space-sm);
+            text-decoration: none;
+            text-align: center;
+            white-space: nowrap;
+            
+            /* 터치 친화적 */
+            min-height: var(--touch-target);
+            min-width: var(--touch-target);
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), transparent);
+            opacity: 0;
+            transition: var(--transition-fast);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            filter: brightness(1.05);
+        }
+        
+        .btn:hover::before {
+            opacity: 1;
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        /* 버튼 변형 */
+        .btn.secondary {
+            background: var(--surface-elevated);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-primary);
+            box-shadow: var(--shadow-xs);
+        }
+        
+        .btn.secondary:hover {
+            background: var(--surface);
+            color: var(--text-primary);
+            border-color: var(--primary);
+        }
+        
+        .btn.outline {
+            background: transparent;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+        
+        .btn.outline:hover {
+            background: var(--primary);
+            color: var(--text-on-primary);
+        }
+        
+        .btn.ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border: none;
+            box-shadow: none;
+        }
+        
+        .btn.ghost:hover {
+            background: var(--primary-50);
+            color: var(--primary);
+        }
+        
+        /* 버튼 크기 */
+        .btn.sm {
+            padding: 0.5rem 1rem;
+            font-size: 0.75rem;
+            min-height: 36px;
+        }
+        
+        .btn.lg {
+            padding: 1rem 2rem;
+            font-size: 1rem;
+            min-height: 52px;
+        }
+        
+        .btn.xl {
+            padding: 1.25rem 2.5rem;
+            font-size: 1.125rem;
+            min-height: 60px;
+            font-weight: 700;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            filter: none;
+        }
+        
+        .btn:disabled:hover {
+            transform: none;
+            box-shadow: var(--shadow-xs);
+        }
+        /* 🔄 로딩 & 스피너 */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: var(--space-lg) 0;
+        }
+        
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: var(--space);
+        }
+        
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid var(--border-primary);
+            border-top: 4px solid var(--primary);
+            border-radius: var(--radius-full);
+            animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
+        
+        .spinner.sm {
+            width: 24px;
+            height: 24px;
+            border-width: 2px;
+        }
+        
+        .spinner.lg {
+            width: 64px;
+            height: 64px;
+            border-width: 6px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* 🔔 토스트 알림 */
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: var(--space-xl);
+            transform: translateX(-50%);
+            background: var(--surface-elevated);
+            color: var(--text-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: var(--radius-full);
+            box-shadow: var(--shadow-lg);
+            padding: var(--space) var(--space-lg);
+            font-size: 0.875rem;
+            font-weight: 600;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: var(--transition);
+            backdrop-filter: blur(20px);
+            max-width: 90vw;
+        }
+        
+        .toast.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(-8px);
+        }
+        
+        .toast.success {
+            background: var(--success);
+            color: white;
+            border-color: var(--success);
+        }
+        
+        .toast.error {
+            background: var(--error);
+            color: white;
+            border-color: var(--error);
+        }
+        
+        .toast.warning {
+            background: var(--warning);
+            color: white;
+            border-color: var(--warning);
+        }
+        .emotion-feedback {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: #fff;
+            border-radius: var(--radius);
+            padding: 1.2rem 1rem;
+            margin: 1.2rem 0;
+            text-align: center;
+            box-shadow: 0 4px 16px rgba(90,111,240,0.13);
+            animation: fadeInUp 0.6s ease-out;
+        }
+        .emotion-feedback h3 {
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+        .emotion-feedback p {
+            font-size: 1rem;
+            line-height: 1.5;
+            margin: 0;
+        }
+        .emotion-icon {
+            font-size: 2.1rem;
+            margin-bottom: 0.3rem;
+            display: block;
+            border-radius: 0 !important;
+            overflow: visible !important;
+        }
+        .emotion-img {
+            width: 128px !important;
+            height: 128px !important;
+            min-width: 128px !important;
+            min-height: 128px !important;
+            max-width: 128px !important;
+            max-height: 128px !important;
+            border-radius: 0 !important;
+            border: none !important;
+            object-fit: contain !important;
+            object-position: center center !important;
+            margin: 20px auto 10px auto !important;
+            padding: 0 !important;
+            box-sizing: border-box !important;
+            display: block !important;
+            clip-path: none !important;
+            mask: none !important;
+        }
+        /* ✨ 애니메이션 라이브러리 */
+        @keyframes fadeInUp {
+            from { 
+                opacity: 0; 
+                transform: translateY(30px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
+            }
+        }
+        
+        @keyframes fadeInDown {
+            from { 
+                opacity: 0; 
+                transform: translateY(-30px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
+            }
+        }
+        
+        @keyframes fadeInLeft {
+            from { 
+                opacity: 0; 
+                transform: translateX(-30px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateX(0); 
+            }
+        }
+        
+        @keyframes fadeInRight {
+            from { 
+                opacity: 0; 
+                transform: translateX(30px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateX(0); 
+            }
+        }
+        
+        @keyframes scaleIn {
+            from { 
+                opacity: 0; 
+                transform: scale(0.8); 
+            }
+            to { 
+                opacity: 1; 
+                transform: scale(1); 
+            }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { 
+                transform: scale(1); 
+            }
+            50% { 
+                transform: scale(1.05); 
+            }
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 53%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40%, 43% {
+                transform: translateY(-15px);
+            }
+            70% {
+                transform: translateY(-7px);
+            }
+            90% {
+                transform: translateY(-3px);
+            }
+        }
+        
+        @keyframes shimmer {
+            0% {
+                background-position: -200px 0;
+            }
+            100% {
+                background-position: calc(200px + 100%) 0;
+            }
+        }
+        
+        /* 애니메이션 유틸리티 클래스 */
+        .animate-fadeInUp {
+            animation: fadeInUp 0.6s var(--ease-out);
+        }
+        
+        .animate-fadeInDown {
+            animation: fadeInDown 0.6s var(--ease-out);
+        }
+        
+        .animate-fadeInLeft {
+            animation: fadeInLeft 0.6s var(--ease-out);
+        }
+        
+        .animate-fadeInRight {
+            animation: fadeInRight 0.6s var(--ease-out);
+        }
+        
+        .animate-scaleIn {
+            animation: scaleIn 0.4s var(--ease-out);
+        }
+        
+        .animate-pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        .animate-bounce {
+            animation: bounce 1s infinite;
+        }
+        
+        /* 호버 효과들 */
+        .hover-lift {
+            transition: var(--transition);
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .hover-scale {
+            transition: var(--transition);
+        }
+        
+        .hover-scale:hover {
+            transform: scale(1.02);
+        }
+        
+        .hover-glow {
+            transition: var(--transition);
+        }
+        
+        .hover-glow:hover {
+            box-shadow: 0 0 20px var(--primary-100);
+        }
+        .result-section {
+            margin-top: 1.5rem;
+            text-align: center !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        .result-image {
+            max-width: 320px;
+            max-height: 320px;
+            border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(60,60,120,0.13);
+            margin: 1rem auto !important;
+            display: block !important;
+            object-fit: contain !important;
+            object-position: center center !important;
+        }
+        #brushResultSection {
+            border-top: 2px solid #e0e4f7;
+            padding-top: 24px;
+            margin-top: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        #brushResultSection h3 {
+            color: #764ba2;
+            font-weight: 700;
+        }
+        /* 📥 다운로드 버튼 */
+        .download-btn {
+            background: var(--success);
+            color: var(--text-on-primary);
+            padding: var(--space-sm) var(--space-lg);
+            border: none;
+            border-radius: var(--radius-full);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: var(--space-sm);
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-xs);
+            box-shadow: var(--shadow-sm);
+            min-height: var(--touch-target);
+        }
+        
+        .download-btn:hover {
+            background: var(--success);
+            filter: brightness(1.1);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .download-btn:active {
+            transform: translateY(0);
+            box-shadow: var(--shadow-xs);
+        }
+        /* 🎨 명화 추천 섹션 */
+        .artwork-recommendations {
+            margin-top: var(--space-lg);
+            padding: var(--space-lg) var(--space);
+            background: var(--primary-50);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--primary-100);
+            transition: var(--transition);
+        }
+        
+        .artwork-recommendations:hover {
+            background: var(--primary-100);
+            border-color: var(--primary);
+        }
+        
+        .artwork-recommendations h3 {
+            text-align: center;
+            margin-bottom: var(--space);
+            color: var(--primary-dark);
+            font-size: 1.125rem;
+            font-weight: 700;
+        }
+        
+        .artwork-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space);
+            margin-top: var(--space-sm);
+            justify-content: center;
+            padding: 0 var(--space-xs);
+        }
+        
+        .artwork-item {
+            background: var(--surface-elevated);
+            border-radius: var(--radius);
+            padding: var(--space-sm);
+            text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+            border: 1px solid var(--border-primary);
+            box-shadow: var(--shadow-xs);
+            flex: 0 0 120px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .artwork-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--gradient-glass);
+            opacity: 0;
+            transition: var(--transition);
+            pointer-events: none;
+        }
+        
+        .artwork-item:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: var(--shadow-md);
+            border-color: var(--primary);
+        }
+        
+        .artwork-item:hover::before {
+            opacity: 1;
+        }
+        
+        .artwork-item:active {
+            transform: translateY(-2px) scale(1.01);
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .artwork-thumbnail {
+            width: 100%;
+            height: 90px;
+            object-fit: cover;
+            border-radius: var(--radius-sm);
+            margin-bottom: var(--space-sm);
+            transition: var(--transition);
+            background: var(--background-tertiary);
+            position: relative;
+        }
+        
+        .artwork-thumbnail.loading::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255,255,255,0.2), 
+                transparent
+            );
+            animation: shimmer 1.5s infinite;
+        }
+        
+        .artwork-thumbnail.loaded {
+            opacity: 1;
+        }
+        
+        .artwork-thumbnail.error {
+            background: var(--background-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-tertiary);
+            font-size: 0.75rem;
+        }
+        
+        .artwork-thumbnail.error::after {
+            content: '🖼️';
+            font-size: 1.5rem;
+        }
+        
+        .artwork-item:hover .artwork-thumbnail {
+            transform: scale(1.05);
+        }
+        
+        .artwork-info {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .artwork-info h4 {
+            margin: 0 0 var(--space-xs) 0;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+        
+        .artwork-info p {
+            margin: 0;
+            color: var(--text-tertiary);
+            font-size: 0.75rem;
+            font-style: italic;
+            line-height: 1.2;
+        }
+        /* 🦶 푸터 */
+        .footer {
+            text-align: center;
+            color: var(--text-tertiary);
+            margin-top: var(--space-2xl);
+            padding: var(--space-lg) 0;
+            font-size: 0.875rem;
+            border-top: 1px solid var(--border-primary);
+            background: var(--surface-secondary);
+        }
+        
+        /* 📱 추가 모바일 최적화 */
+        @media (max-width: 320px) {
+            :root {
+                --mobile-padding: 0.75rem;
+                --mobile-gap: 0.5rem;
+            }
+            
+            .card {
+                padding: var(--space) var(--mobile-padding);
+            }
+            
+            .btn {
+                padding: 0.6rem 0.75rem;
+                font-size: 0.8rem;
+            }
+            
+            .artwork-item {
+                flex: 0 0 100px;
+            }
+            
+            .artwork-thumbnail {
+                height: 75px;
+            }
+        }
+        /* 갤러리 */
+        .gallery-section {
+            margin-top: 2.5rem;
+            padding: 2rem;
+            background: var(--card);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
+        }
+        .gallery-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-primary);
+        }
+        .gallery-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.2rem;
+        }
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 1rem;
+        }
+        .gallery-item {
+            background: #fff;
+            border-radius: 12px;
+            padding: 0.7rem 0.5rem;
+            box-shadow: 0 2px 8px rgba(60,60,120,0.07);
+            transition: var(--transition);
+            position: relative;
+        }
+        .gallery-item:hover {
+            transform: translateY(-3px) scale(1.03);
+            box-shadow: 0 8px 24px rgba(90,111,240,0.13);
+        }
+        .gallery-item img {
+            width: 100%;
+            height: 90px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+        .gallery-item h4 {
+            margin: 0 0 4px 0;
+            color: var(--primary-dark);
+            font-size: 0.98rem;
+        }
+        .gallery-item p {
+            margin: 0 0 4px 0;
+            color: #666;
+            font-size: 0.85rem;
+        }
+        .gallery-item .emotion-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: #fff;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            margin-bottom: 4px;
+        }
+        .gallery-item .delete-btn {
+            position: absolute;
+            top: 8px; right: 8px;
+            background: #dc3545;
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 24px; height: 24px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: var(--transition);
+        }
+        .gallery-item .delete-btn:hover { background: #c82333; }
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .container { 
+                max-width: 100%; 
+                padding: 0 1rem 2rem 1rem; 
+                margin: 1.5rem auto 0 auto;
+            }
+            .nav { 
+                padding: 0.8rem 1.5rem; 
+                border-radius: 0 0 var(--radius) var(--radius);
+            }
+            .nav-logo {
+                font-size: 1.8rem;
+            }
+            .card { 
+                padding: 2rem 1.5rem 1.5rem 1.5rem; 
+                margin-bottom: 2rem;
+            }
+            .card-title {
+                font-size: 1.5rem;
+            }
+            .camera-btn {
+                width: 150px;
+                height: 150px;
+            }
+            .camera-btn .camera-icon {
+                font-size: 2.5rem;
+            }
+            .camera-btn .camera-text {
+                font-size: 0.9rem;
+            }
+            .gallery-grid, .artwork-grid { 
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); 
+                gap: 0.8rem;
+            }
+        }
+        @media (max-width: 480px) {
+            .nav { 
+                flex-direction: column; 
+                gap: 1rem; 
+                padding: 1rem;
+            }
+            .nav-logo { 
+                font-size: 1.6rem; 
+            }
+            .nav-menu { 
+                gap: 0.5rem; 
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            .nav-menu button, .nav-menu .btn {
+                padding: 0.6rem 1.2rem;
+                font-size: 0.9rem;
+            }
+            .container { 
+                padding: 0 0.5rem 1.5rem 0.5rem; 
+                margin: 1rem auto 0 auto;
+            }
+            .card { 
+                padding: 1.5rem 1rem 1rem 1rem; 
+                margin-bottom: 1.5rem;
+            }
+            .card-title {
+                font-size: 1.3rem;
+            }
+            .camera-section {
+                padding: 1.5rem;
+                min-height: 160px;
+            }
+            .camera-btn {
+                width: 120px;
+                height: 120px;
+                gap: 0.5rem;
+            }
+            .camera-btn .camera-icon {
+                font-size: 2rem;
+            }
+            .camera-btn .camera-text {
+                font-size: 0.8rem;
+            }
+            .gallery-grid, .artwork-grid { 
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                gap: 0.6rem;
+            }
+            .gallery-section {
+                padding: 1.5rem 1rem;
+            }
+        }
+        
+        /* ===== 추가 이미지 중앙 정렬 강화 ===== */
+        #processedImage {
+            display: block !important;
+            margin: 1rem auto !important;
+            object-fit: contain !important;
+            object-position: center center !important;
+            max-width: 100% !important;
+        }
+        
+        /* 인증 모달 (로그인/회원가입) */
+        .auth-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            width: 100vw; height: 100vh;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+        .auth-modal-content {
+            background: var(--card);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-xl);
+            padding: 2.5rem 2rem 2rem 2rem;
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 1px solid var(--border);
+            position: relative;
+            overflow: hidden;
+            animation: fadeInUp 0.5s ease-out;
+        }
+        .auth-modal-content::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient-primary);
+        }
+        .auth-modal-content h2 {
+            color: var(--primary-dark);
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 1.2rem;
+            text-align: center;
+        }
+        .auth-form {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .auth-form input {
+            width: 100%;
+            padding: 0.85rem 1.1rem;
+            border: 1.5px solid #e0e4f7;
+            border-radius: 999px;
+            font-size: 1rem;
+            background: #f6f7fb;
+            color: #222;
+            outline: none;
+            transition: border 0.2s;
+        }
+        .auth-form input:focus {
+            border-color: var(--primary);
+            background: #f3f6ff;
+        }
+        .auth-form button.btn {
+            margin-top: 0.5rem;
+            width: 100%;
+            padding: 0.85rem 0;
+            font-size: 1.08rem;
+        }
+        .auth-modal .btn.secondary {
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+        @media (max-width: 480px) {
+            .auth-modal-content {
+                padding: 1.2rem 0.5rem 1rem 0.5rem;
+                max-width: 98vw;
+            }
+            .auth-form input, .auth-form button.btn, .auth-modal .btn.secondary {
+                font-size: 0.98rem;
+                padding: 0.7rem 0.7rem;
+            }
+        }
+        
+        /* 애니메이션 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .modal { position:fixed;z-index:9999;left:0;top:0;width:100vw;height:100vh;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;}
+        .modal-content { background:#fff;padding:32px 24px;border-radius:12px;min-width:400px;position:relative;}
+        .close { position:absolute;top:12px;right:18px;font-size:2rem;cursor:pointer;}
+        .btn.danger { background:#dc3545;color:#fff; }
+        .btn.danger:hover { background:#b52a37; }
+        
+        /* 카메라 섹션 스타일 */
+        .camera-section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+            padding: 2rem;
+        }
+        
+        .camera-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            width: 180px;
+            height: 180px;
+            border: none;
+            border-radius: 50%;
+            background: var(--gradient-primary);
+            color: #fff;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: var(--shadow-xl);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .camera-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .camera-btn:hover {
+            transform: translateY(-8px) scale(1.05);
+            box-shadow: 0 25px 50px rgba(102, 126, 234, 0.4);
+        }
+        
+        .camera-btn:hover::before {
+            opacity: 1;
+        }
+        
+        .camera-btn .camera-icon {
+            font-size: 3rem;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+        }
+        
+        .camera-btn .camera-text {
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-align: center;
+            line-height: 1.3;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* 인트로 화면 스타일 */
+        .intro-screen {
+            position: fixed;
+            z-index: 9999;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: url('intro.png') center/cover no-repeat;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            overflow: hidden;
+        }
+        
+        .intro-nav {
+            width: 100%;
+            padding: 2rem 3rem 0 3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .intro-logo {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #fff;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            letter-spacing: -1px;
+        }
+        
+        .intro-nav-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+        
+        .intro-btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            text-decoration: none;
+            outline: none;
+        }
+        
+        .intro-btn-outline {
+            background: transparent;
+            color: #fff;
+            border-color: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .intro-btn-outline:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        .intro-btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .intro-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+        }
+        
+        .intro-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .intro-hero {
+            margin-bottom: 3rem;
+        }
+        
+        .intro-title {
+            font-size: 4.5rem;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            letter-spacing: -3px;
+            margin: 0 0 1rem 0;
+            line-height: 1;
+            background: linear-gradient(135deg, #fff, #e0e7ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .intro-logo-img {
+            max-height: 9rem;
+            width: auto;
+            filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.3));
+        }
+        
+        .intro-subtitle {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            margin-bottom: 2rem;
+            letter-spacing: -1px;
+        }
+        
+        .intro-description {
+            font-size: 1.4rem;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.8;
+            text-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+        }
+        
+        .intro-description p {
+            margin: 0.5rem 0;
+        }
+        
+        .intro-action {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        
+        .intro-start-btn {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            font-size: 2.5rem;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            box-shadow: 0 8px 30px rgba(102, 126, 234, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .intro-start-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent);
+            border-radius: 50%;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .intro-start-btn:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+        }
+        
+        .intro-start-btn:hover::before {
+            opacity: 1;
+        }
+        
+        .camera-icon {
+            font-size: 2.5rem;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+            transform: translateY(-5px);
+        }
+        
+        .intro-action-text {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
+        }
+        
+        .intro-footer {
+            width: 100%;
+            padding: 2rem 3rem 3rem 3rem;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.05);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .intro-features {
+            display: flex;
+            justify-content: center;
+            gap: 0; /* 여백 완전 삭제 */
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .feature-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 500;
+            text-align: center;
+        }
+        
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+        }
+        
+        /* 📱 태블릿 반응형 (768px 이하) */
+        @media (max-width: 768px) {
+            :root {
+                --mobile-padding: 1.5rem;
+                --mobile-gap: 1rem;
+            }
+            
+            .nav {
+                padding: var(--space-sm) var(--mobile-padding);
+                border-radius: 0 0 var(--radius) var(--radius);
+            }
+            
+            .nav-logo {
+                font-size: 1.75rem;
+            }
+            
+            .nav-menu {
+                gap: var(--space-sm);
+            }
+            
+            .nav-menu button, .nav-menu .btn {
+                padding: 0.6rem 1.2rem;
+                font-size: 0.875rem;
+            }
+            
+            .container {
+                max-width: 100%;
+                padding: 0 var(--mobile-padding) var(--space-lg) var(--mobile-padding);
+                margin-top: var(--space);
+            }
+            
+            .card {
+                margin-bottom: var(--space-lg);
+                padding: var(--space-lg) var(--mobile-padding) var(--mobile-padding) var(--mobile-padding);
+                border-radius: var(--radius-lg);
+            }
+            
+            .card-title {
+                font-size: 1.5rem;
+                margin-bottom: var(--space);
+            }
+            
+            /* 인트로 화면 */
+            .intro-nav {
+                padding: var(--space) var(--mobile-padding) 0 var(--mobile-padding);
+            }
+            
+            .intro-logo {
+                font-size: 2rem;
+            }
+            
+            .intro-btn {
+                padding: 0.6rem 1.2rem;
+                font-size: 0.875rem;
+            }
+            
+            .intro-title {
+                font-size: 3.5rem;
+                letter-spacing: -2px;
+            }
+            
+            .intro-subtitle {
+                font-size: 2rem;
+            }
+            
+            .intro-description {
+                font-size: 1.2rem;
+                padding: 0 var(--mobile-padding);
+            }
+            
+            .intro-start-btn {
+                width: 80px;
+                height: 80px;
+                font-size: 2rem;
+            }
+            
+            .intro-footer {
+                padding: var(--space-lg) var(--mobile-padding) var(--space-xl) var(--mobile-padding);
+            }
+            
+            .intro-features {
+                gap: var(--mobile-gap);
+            }
+        }
+        
+        /* 📱 모바일 전용 (480px 이하) */
+        @media (max-width: 480px) {
+            :root {
+                --mobile-padding: 1rem;
+                --mobile-gap: 0.75rem;
+                --touch-target: 48px; /* 더 큰 터치 영역 */
+            }
+            
+            /* 🧭 네비게이션 */
+            .nav {
+                padding: var(--space-sm) var(--mobile-padding);
+                flex-wrap: wrap;
+                gap: var(--space-sm);
+            }
+            
+            .nav-logo {
+                font-size: 1.5rem;
+            }
+            
+            .nav-menu {
+                flex-wrap: wrap;
+                gap: var(--space-xs);
+            }
+            
+            .nav-menu button, .nav-menu .btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.75rem;
+                min-height: 40px;
+            }
+            
+            /* 📦 컨테이너 & 카드 */
+            .container {
+                padding: 0 var(--mobile-padding) var(--space-lg) var(--mobile-padding);
+                margin-top: var(--space-sm);
+            }
+            
+            .card {
+                margin-bottom: var(--space);
+                padding: var(--space) var(--mobile-padding);
+                border-radius: var(--radius);
+                box-shadow: var(--shadow);
+            }
+            
+            .card-title {
+                font-size: 1.25rem;
+                margin-bottom: var(--mobile-gap);
+            }
+            
+            /* 🔘 버튼 */
+            .btn {
+                padding: 0.75rem 1rem;
+                font-size: 0.875rem;
+                min-height: var(--touch-target);
+                gap: var(--space-xs);
+            }
+            
+            .btn.sm {
+                padding: 0.5rem 0.75rem;
+                font-size: 0.75rem;
+                min-height: 40px;
+            }
+            
+            .btn.lg {
+                padding: 1rem 1.5rem;
+                font-size: 1rem;
+                min-height: 56px;
+            }
+            
+            /* 📸 이미지 미리보기 */
+            .preview-container {
+                padding: var(--space-sm);
+                max-width: 100%;
+            }
+            
+            .preview-image {
+                max-width: 160px;
+                max-height: 160px;
+                border-radius: var(--radius);
+            }
+            
+            /* 🎨 명화 추천 */
+            .artwork-grid {
+                padding: 0 var(--space-xs);
+                gap: var(--space-xs);
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none;
+                -ms-overflow-style: none;
+            }
+            
+            .artwork-grid::-webkit-scrollbar {
+                display: none;
+            }
+            
+            .artwork-item {
+                flex: 0 0 80px;
+                width: 80px;
+                height: 80px;
+                min-width: 80px;
+                border-radius: var(--radius-sm);
+                overflow: hidden;
+                transition: var(--transition);
+            }
+            
+            .artwork-item:hover {
+                transform: scale(1.05);
+            }
+            
+            .artwork-item img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                border-radius: var(--radius-sm);
+            }
+            
+            /* 📱 인트로 화면 */
+            .intro-nav {
+                padding: var(--mobile-padding);
+                flex-direction: column;
+                gap: var(--space);
+                text-align: center;
+            }
+            
+            .intro-logo {
+                font-size: 1.75rem;
+            }
+            
+            .intro-nav-buttons {
+                gap: var(--space-sm);
+                justify-content: center;
+            }
+            
+            .intro-btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.8rem;
+                min-height: 40px;
+            }
+            
+            .intro-title {
+                font-size: 2.5rem;
+                letter-spacing: -1px;
+                margin-bottom: var(--space);
+            }
+            
+            .intro-subtitle {
+                font-size: 1.5rem;
+                margin-bottom: var(--space);
+            }
+            
+            .intro-description {
+                font-size: 1rem;
+                padding: 0 var(--space);
+                line-height: 1.6;
+            }
+            
+            .intro-start-btn {
+                width: 70px;
+                height: 70px;
+                font-size: 1.75rem;
+            }
+            
+            .intro-footer {
+                padding: var(--space) var(--mobile-padding) var(--space-lg) var(--mobile-padding);
+            }
+            
+            .intro-features {
+                flex-direction: column;
+                gap: var(--space);
+                max-width: 100%;
+            }
+            
+            .feature-item {
+                flex-direction: row;
+                gap: var(--space);
+                text-align: left;
+                justify-content: flex-start;
+            }
+            
+            .feature-icon {
+                font-size: 1.5rem;
+                margin-bottom: 0;
+                flex-shrink: 0;
+            }
+            
+            /* 🎨 업로드 영역 */
+            .upload-area {
+                padding: var(--space-lg) var(--space);
+                border-width: 2px;
+            }
+            
+            .upload-icon {
+                font-size: 2rem;
+            }
+            
+            .upload-text {
+                font-size: 1rem;
+            }
+            
+            .upload-hint {
+                font-size: 0.8rem;
+            }
+            
+            /* 📊 감정 피드백 */
+            .emotion-feedback {
+                padding: var(--space) var(--mobile-gap);
+                margin: var(--space) 0;
+                border-radius: var(--radius);
+            }
+            
+            .emotion-img {
+                width: 96px !important;
+                height: 96px !important;
+                min-width: 96px !important;
+                min-height: 96px !important;
+                max-width: 96px !important;
+                max-height: 96px !important;
+                margin: var(--space-sm) auto !important;
+            }
+            
+            /* 🏞️ 결과 이미지 */
+            .result-image {
+                max-width: 280px;
+                max-height: 280px;
+                border-radius: var(--radius);
+                margin: var(--space) auto !important;
+            }
+            
+            /* 🎨 카메라 섹션 */
+            .camera-section {
+                padding: var(--space-sm);
+                min-height: 100px;
+            }
+            
+            .camera-btn {
+                width: 80px;
+                height: 80px;
+                font-size: 1.25rem;
+                border-radius: var(--radius-full);
+            }
+        }
+
+        /* 로고 이미지 스타일 */
+        .logo-img {
+            width: 32px;
+            height: 32px;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        /* 감정 이미지 스타일 */
+        .emotion-img {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+        }
+
+        /* 카메라 버튼 텍스트 제거 후 조정 */
+        .camera-btn {
+            width: 120px;
+            height: 120px;
+        }
+
+        /* 🎬 Splash 화면 스타일 */
+        .splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000; /* 인트로 화면보다 위에 */
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .splash-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            background: #000;
+        }
+        
+        /* 터치 유도 텍스트 */
+        .splash-touch-hint {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1rem;
+            font-weight: 500;
+            text-align: center;
+            z-index: 10001;
+            animation: pulseGlow 2s ease-in-out infinite;
+            pointer-events: none;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+        
+        @keyframes pulseGlow {
+            0%, 100% {
+                opacity: 0.6;
+                transform: translateX(-50%) scale(1);
+            }
+            50% {
+                opacity: 1;
+                transform: translateX(-50%) scale(1.05);
+            }
+        }
+
+        /* 모바일 최적화 */
+        @media (max-width: 768px) {
+            .splash-video {
+                /* 모바일에서 성능 최적화를 위한 설정 */
+                will-change: transform;
+                transform: translateZ(0);
+            }
+        }
+
+        /* Splash 화면 페이드아웃 애니메이션 */
+        .splash-screen.fade-out {
+            animation: fadeOut 0.5s ease-out forwards;
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+                visibility: hidden;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .preview-image {
+                max-width: 100%;
+                height: auto;
+                object-fit: contain;
+                /* 추가: 모바일에서도 완벽한 중앙 정렬 */
+                display: block;
+                margin: 0 auto;
+                object-position: center center;
+                width: auto;
+                max-height: 300px;
+            }
+            
+            .image-preview {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 1rem;
+                padding: 1rem;
+            }
+            
+            .preview-container {
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+        }
+
+        /* 브러시 결과 이미지 중앙 정렬 강화 */
+        #processedImage {
+            display: block !important;
+            margin: 0 auto !important;
+            object-position: center center !important;
+            text-align: center;
+        }
+
+        /* 결과 섹션 전체 중앙 정렬 */
+        .result-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <!-- Splash 화면 -->
+    <div id="splashScreen" class="splash-screen">
+        <video id="splashVideo" class="splash-video" autoplay muted playsinline>
+            <source src="/Splash_meart.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+        <div class="splash-touch-hint">
+            📱 터치하여 시작하기
+        </div>
+    </div>
+
+    <!-- 인트로 화면 -->
+    <div id="introScreen" class="intro-screen" style="display: none;">
+        <!-- 상단 네비게이션 -->
+        <div class="intro-nav">
+            <div class="intro-nav-buttons">
+                <button class="intro-btn intro-btn-outline" id="introLoginBtn" onclick="console.log('🔘 로그인 버튼 클릭됨'); try { window.showLoginModal(); } catch(e) { console.error('❌ 모달 오류:', e); alert('로그인 모달 오류: ' + e.message); }">로그인</button>
+                <button class="intro-btn intro-btn-primary" id="introSignupBtn" onclick="console.log('🔘 회원가입 버튼 클릭됨'); try { window.showSignupModal(); } catch(e) { console.error('❌ 모달 오류:', e); alert('회원가입 모달 오류: ' + e.message); }">회원가입</button>
+        </div>
+        </div>
+        
+        <!-- 메인 콘텐츠 -->
+        <div class="intro-content">
+            <div class="intro-hero">
+                <h1 class="intro-title"><img src="/logo_intro.png" alt="MeArt" class="intro-logo-img"></h1>
+                <div class="intro-description">
+                    <p>감정을 예술로 바꾸는 한 순간,</p>
+                    <p>나만의 명화가 시작됩니다</p>
+                </div>
+            </div>
+            
+            <div class="intro-action">
+                <button id="startBtn" class="intro-start-btn">
+                    <span class="camera-icon">📸</span>
+                </button>
+                <div class="intro-action-text">사진 촬영/업로드</div>
+            </div>
+        </div>
+        
+        <!-- 하단 정보 -->
+        <div class="intro-footer">
+            <div class="intro-features">
+                <div class="feature-item">
+                    <span class="feature-icon">🎭</span>
+                    <span>AI 감정 분석</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🖼️</span>
+                    <span>명화 배경 합성</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🎨</span>
+                    <span>브러시 효과</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <nav class="nav">
+        <div class="nav-logo"><img src="/logo_icon.png" alt="MeArt" class="nav-logo-img"></div>
+        <div class="nav-menu" id="navMenu">
+            <button class="btn secondary" onclick="showGallery()">갤러리</button>
+            <button class="btn secondary" onclick="showLoginModal()" id="navLoginBtn">로그인</button>
+            <button class="btn secondary" onclick="showSignupModal()" id="navSignupBtn">회원가입</button>
+            <button class="nav-avatar btn secondary" id="navAvatar" style="display:none; border:none;">U</button>
+            <button class="btn secondary" onclick="logout()" id="navLogoutBtn" style="display:none;">로그아웃</button>
+        </div>
+    </nav>
+    <div class="container" id="mainContainer" style="display:none;">
+        <div class="card" id="photoCard">
+            <div class="card-title">사진 촬영/업로드</div>
+            <div class="camera-section">
+                <button id="cameraBtn" class="camera-btn">
+                    <span class="camera-icon">📸</span>
+                </button>
+                <input type="file" id="fileInput" accept="image/*" capture="environment" style="display:none;">
+            </div>
+            <!-- 원본/처리된 이미지 미리보기 섹션 삭제됨 -->
+            <div class="controls" id="controls" style="display: none;">
+                <button class="btn secondary" onclick="resetImage()">다시 시작</button>
+            </div>
+            <div id="message"></div>
+            <div id="emotionFeedback" style="display: none;" class="emotion-feedback">
+                <span id="emotionIcon" class="emotion-icon">
+                    <img id="emotionImg" src="/neutral.png" alt="감정 분석 중" class="emotion-img" style="width: 128px !important; height: 128px !important; border-radius: 0 !important; border: none !important; object-fit: contain !important; object-position: center center !important; margin: 20px auto 10px auto !important; padding: 0 !important; box-sizing: border-box !important; display: block !important; clip-path: none !important; mask: none !important;">
+                </span>
+                <h3 id="emotionTitle">감정 분석 결과</h3>
+                <p id="emotionMessage">당신의 감정을 분석하고 있어요...</p>
+            </div>
+            <div id="artworkRecommendationsContainer"></div>
+            <div class="result-section" id="resultSection" style="display: none;">
+                <h3>1단계: 배경 합성 결과</h3>
+                <img id="previewImage" class="result-image" alt="미리보기 이미지">
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>이미지를 처리하고 있습니다...</p>
+                </div>
+                <br>
+                <button id="brushEffectBtn" class="btn" style="display: none; margin: 16px auto; background: #764ba2; color: white; padding: 12px 24px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600;">
+                    🎨 인물브러쉬효과 적용
+                </button>
+                <div id="brushResultSection" style="display: none; margin-top: 24px;">
+                    <h3>2단계: 브러쉬 효과 적용 결과</h3>
+                    <img id="brushResultImage" class="result-image" alt="브러쉬 효과 결과 이미지">
+                    <br>
+                    <div class="result-actions" style="display: flex; gap: 12px; justify-content: center; margin-top: 16px;">
+                        <a id="downloadLink" class="download-btn" download="meart_result.png">다운로드</a>
+                        <button id="saveToGalleryBtn" class="btn" onclick="saveToGallery()" style="background: #28a745; color: white; padding: 12px 24px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600;">
+                            💾 갤러리에 저장
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="gallerySection" class="gallery-section" style="display: none;">
+            <div class="gallery-header">
+                <h3>🎨 Me Gallery (로컬 모드)</h3>
+                <button class="btn" onclick="loadGallery()">새로고침</button>
+                <!-- 로컬 갤러리에서는 삭제 기능 일시 비활성화 -->
+                <!--<button class="btn secondary" id="selectAllBtn" onclick="toggleSelectAllGallery()" style="margin-left:8px;">전체선택</button>
+                <button class="btn danger" id="batchDeleteBtn" onclick="deleteSelectedGallery()" style="margin-left:8px;display:none;">선택 삭제</button>-->
+            </div>
+            <div id="galleryGrid" class="gallery-grid"></div>
+        </div>
+        <div class="footer">
+                            <p>&copy; 2025 MeArt. AI 아트 생성기 by 4Dvision</p>
+        </div>
+    </div>
+    <!-- 인증 모달 -->
+    <div id="authModal" class="auth-modal" style="display:none;">
+        <div class="auth-modal-content" style="max-width:350px;">
+            <h2 id="authModalTitle">로그인</h2>
+            <form id="authForm" class="auth-form">
+                <input type="text" id="authUsername" placeholder="사용자명" required>
+                <input type="email" id="authEmail" placeholder="이메일" required>
+                <input type="password" id="authPassword" placeholder="비밀번호" required>
+                <button type="submit" id="authSubmitBtn" class="btn">로그인</button>
+            </form>
+            <button onclick="closeAuthModal()" class="btn secondary" style="margin-top: 10px;">취소</button>
+        </div>
+    </div>
+    <div id="toast" class="toast"></div>
+    <!-- 갤러리 상세 모달: 결과 이미지만 보여주도록 수정 -->
+    <div id="galleryModal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <span class="close" onclick="closeGalleryModal()">&times;</span>
+        <h3 id="modalTitle"></h3>
+        <div style="display:flex;gap:24px;justify-content:center;">
+          <div style="text-align:center;">
+            <h4>결과 이미지</h4>
+            <img id="modalResult" style="max-width:420px;max-height:420px;">
+          </div>
+        </div>
+        <p id="modalDate"></p>
+      </div>
+    </div>
+    <script>
+        let currentFile = null;
+        let processedImageUrl = null;
+        let currentUser = null;
+        let authToken = null;
+        let nobgBlob = null;
+        let lastNobgPath = null; // 🎯 마지막 nobg 파일 경로 저장
+        let isBrushProcessing = false; // 🎯 브러시 효과 처리 중 상태
+        let pendingBrushUpdate = null; // 🎯 대기 중인 브러시 업데이트
+        let currentEmotion = 'neutral'; // 🎯 현재 감정 상태 저장
+        let currentBackground = ''; // 🎯 현재 배경 이미지 경로 저장
+
+        // 파일을 Base64로 변환하는 함수
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // 배경 합성 함수 (원본 비율/크기 유지)
+        async function compositeBackground(foregroundImage, backgroundImage) {
+            return new Promise((resolve, reject) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                const fgImg = new Image();
+                const bgImg = new Image();
+
+                fgImg.onload = function() {
+                    // 캔버스 크기를 전경(업로드 원본) 이미지 크기로 고정
+                    canvas.width = fgImg.naturalWidth;
+                    canvas.height = fgImg.naturalHeight;
+
+                    bgImg.onload = function() {
+                        // 배경 이미지를 업로드 원본 크기로 맞춰서 그림 (crop/stretch)
+                        ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+                        // 배경 제거된 얼굴 이미지를 (0,0)에서 원본 크기로 그림
+                        ctx.drawImage(fgImg, 0, 0, canvas.width, canvas.height);
+
+                        // 결과를 Base64로 변환
+                        const result = canvas.toDataURL('image/png');
+                        resolve(result);
+                    };
+                    bgImg.onerror = () => reject(new Error('배경 이미지 로드 실패'));
+                    bgImg.src = backgroundImage;
+                };
+                fgImg.onerror = () => reject(new Error('전경 이미지 로드 실패'));
+                fgImg.src = foregroundImage;
+            });
+        }
+
+
+
+        // DOM 요소들
+        // const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const imagePreview = document.getElementById('imagePreview'); // 삭제된 요소 - null이 될 수 있음
+        const originalImage = document.getElementById('originalImage'); // 삭제된 요소 - null이 될 수 있음
+        const processedImage = document.getElementById('processedImage'); // 삭제된 요소 - null이 될 수 있음
+        const controls = document.getElementById('controls');
+        const loading = document.getElementById('loading');
+        const message = document.getElementById('message');
+        const resultSection = document.getElementById('resultSection');
+        const previewImage = document.getElementById('previewImage');
+        const brushResultSection = document.getElementById('brushResultSection');
+        const brushResultImage = document.getElementById('brushResultImage');
+        const downloadLink = document.getElementById('downloadLink');
+        const emotionFeedback = document.getElementById('emotionFeedback');
+        const emotionIcon = document.getElementById('emotionIcon');
+        const emotionTitle = document.getElementById('emotionTitle');
+        const emotionMessage = document.getElementById('emotionMessage');
+
+        // 이벤트 리스너 설정
+        // uploadArea.addEventListener('click', () => fileInput.click());
+        // uploadArea.addEventListener('dragover', handleDragOver);
+        // uploadArea.addEventListener('dragleave', handleDragLeave);
+        // uploadArea.addEventListener('drop', handleDrop);
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // function handleDragOver(e) {
+        //     e.preventDefault();
+        //     uploadArea.classList.add('dragover');
+        // }
+
+        // function handleDragLeave(e) {
+        //     e.preventDefault();
+        //     uploadArea.classList.remove('dragover');
+        // }
+
+        // function handleDrop(e) {
+        //     e.preventDefault();
+        //     uploadArea.classList.remove('dragover');
+        //     const files = e.dataTransfer.files;
+        //     if (files.length > 0) {
+        //         handleFile(files[0]);
+        //     }
+        // }
+
+        // 모바일 최적화된 이미지 리사이즈 함수 (성능 개선)
+        async function resizeImageIfMobile(file, maxSize = 800) {
+            if (!isMobileDevice()) return file;
+            
+            // 파일 크기가 이미 작으면 리사이즈 생략
+            if (file.size < 500 * 1024) return file; // 500KB 미만은 그대로 사용
+            
+            return new Promise((resolve) => {
+                const img = new Image();
+                const reader = new FileReader();
+                
+                reader.onload = (e) => {
+                    img.onload = () => {
+                        let { width, height } = img;
+                        
+                        // 이미 적절한 크기면 그대로 사용
+                        if (width <= maxSize && height <= maxSize) {
+                            resolve(file);
+                return;
+            }
+                        
+                        // 비율 유지하며 리사이즈
+                        const scale = Math.min(maxSize / width, maxSize / height);
+                        width = Math.round(width * scale);
+                        height = Math.round(height * scale);
+                        
+                        // 오프스크린 캔버스 사용 (성능 개선)
+                        let canvas;
+                        if (typeof OffscreenCanvas !== 'undefined') {
+                            canvas = new OffscreenCanvas(width, height);
+                        } else {
+                            canvas = document.createElement('canvas');
+                            canvas.width = width;
+                            canvas.height = height;
+                        }
+                        
+                        const ctx = canvas.getContext('2d');
+                        // 이미지 품질 설정 (모바일 최적화)
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'medium';
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // 압축률 조정 (모바일: 더 높은 압축)
+                        const quality = file.size > 2 * 1024 * 1024 ? 0.7 : 0.85; // 2MB 이상이면 더 압축
+                        
+                        // OffscreenCanvas 또는 일반 Canvas에 따른 blob 생성
+                        if (typeof OffscreenCanvas !== 'undefined' && canvas instanceof OffscreenCanvas) {
+                            canvas.convertToBlob({ type: 'image/jpeg', quality }).then(blob => {
+                                const resizedFile = new File([blob], file.name, { type: 'image/jpeg' });
+                                console.log(`📱 모바일 리사이즈 (OffscreenCanvas): ${file.size} → ${resizedFile.size} bytes`);
+                                resolve(resizedFile);
+                            });
+                        } else {
+                            canvas.toBlob((blob) => {
+                                const resizedFile = new File([blob], file.name, { type: 'image/jpeg' });
+                                console.log(`📱 모바일 리사이즈 (Canvas): ${file.size} → ${resizedFile.size} bytes`);
+                                resolve(resizedFile);
+                            }, 'image/jpeg', quality);
+                        }
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // handleFileSelect를 async로 변경하여 리사이즈 적용
+        async function handleFileSelect(e) {
+            let file = e.target.files[0];
+            if (file) {
+                file = await resizeImageIfMobile(file);
+                handleFile(file);
+            }
+        }
+
+        // FileReader.readAsDataURL, URL.createObjectURL 등 data: URL, blob: URL 사용 부분을 모두 제거
+        // 이미지 미리보기, 합성 등 모든 단계에서 processedImageUrl(서버 URL)만 사용
+
+        function handleFile(file) {
+            // 🔧 모바일에서 사진 촬영 후 인트로 화면 완전히 숨기고 메인 화면 표시
+            const introScreen = document.getElementById('introScreen');
+            const mainContainer = document.getElementById('mainContainer');
+            const splashScreen = document.getElementById('splashScreen');
+            
+            console.log('📱 파일 처리 시작 - 화면 상태 강제 전환');
+            
+            // 모든 오버레이 화면 강제로 숨기기
+            if (splashScreen) {
+                splashScreen.style.display = 'none !important';
+                splashScreen.style.visibility = 'hidden';
+                splashScreen.style.zIndex = '-1';
+            }
+            
+            if (introScreen) {
+                introScreen.style.display = 'none !important';
+                introScreen.style.visibility = 'hidden';
+                introScreen.style.zIndex = '-9999';
+                introScreen.style.position = 'absolute';
+                introScreen.style.top = '-9999px';
+                introScreen.classList.add('hidden-force');
+                console.log('✅ 인트로 화면 완전히 숨김');
+            }
+            
+            if (mainContainer) {
+                mainContainer.style.display = 'block !important';
+                mainContainer.style.visibility = 'visible';
+                mainContainer.style.zIndex = '1';
+                mainContainer.style.position = 'relative';
+                console.log('✅ 메인 화면 강제 표시');
+            }
+            
+            // 약간의 지연 후 다시 한 번 확인
+            setTimeout(() => {
+                if (introScreen) {
+                    introScreen.style.display = 'none !important';
+                    introScreen.style.visibility = 'hidden !important';
+                    introScreen.classList.add('hidden-force');
+                    console.log('🔄 지연 후 인트로 화면 완전 숨김 재확인');
+                }
+                if (mainContainer) {
+                    mainContainer.style.display = 'block !important';
+                    mainContainer.style.visibility = 'visible !important';
+                    console.log('🔄 지연 후 메인 화면 표시 재확인');
+                }
+            }, 100);
+            
+            // 추가 안전 장치: 500ms 후에도 다시 한 번 확인
+            setTimeout(() => {
+                if (introScreen) {
+                    introScreen.classList.add('hidden-force');
+                    console.log('🔒 최종 안전 장치: 인트로 화면 완전 숨김');
+                }
+            }, 500);
+            
+            if (!file.type.startsWith('image/')) {
+                showMessage('이미지 파일만 업로드 가능합니다.', 'error');
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                showMessage('파일 크기는 10MB 이하여야 합니다.', 'error');
+                return;
+            }
+            currentFile = file;
+            // 미리보기는 서버 URL이 반환된 후에만 띄움 (data: URL 사용 금지)
+            if (imagePreview) imagePreview.style.display = 'none';
+            if (controls) controls.style.display = 'none';
+            if (resultSection) resultSection.style.display = 'none';
+            if (processedImage) processedImage.style.display = 'none';
+                hideMessage();
+                // 자동으로 배경 제거, 감정 분석, 명화 추천 실행
+                processImageAutomatically();
+        }
+
+        async function processImageAutomatically() {
+            if (!currentFile) return;
+
+            showLoading(true);
+            hideMessage();
+
+            try {
+                // 1. 배경 제거
+                const bgRemoved = await removeBackgroundInternal();
+                if (!bgRemoved) {
+                    showLoading(false);
+                    return;
+                }
+
+                // 2. 감정 분석
+                const emotionResult = await analyzeEmotionInternal();
+                if (!emotionResult) {
+                    showLoading(false);
+                    return;
+                }
+
+                // 3. 명화 추천 (자동으로 첫 번째 명화 선택)
+                console.log('🎯 감정 분석 결과 확인:', emotionResult);
+                const detectedEmotion = emotionResult?.emotion || currentEmotion || 'neutral';
+                console.log('🎯 사용할 감정:', detectedEmotion);
+                await recommendArtworks(detectedEmotion);
+                
+                // 4. 자동으로 첫 번째 명화와 배경 합성 실행
+                const key = mapEmotionKey(detectedEmotion);
+                const artworks = ARTWORKS_BY_EMOTION[key];
+                if (artworks && artworks.length > 0) {
+                    const firstArtwork = artworks[0];
+                    await applyComposite(firstArtwork.id, firstArtwork.image);
+                }
+
+            } catch (error) {
+                showMessage(error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function removeBackgroundInternal() {
+            try {
+                const formData = new FormData();
+                formData.append('image', currentFile);
+                
+                const headers = {};
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+                
+                const response = await fetch('/api/remove-bg', {
+                    method: 'POST',
+                    headers,
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    processedImageUrl = result.processedImageUrl; // 반드시 서버 URL
+                    if (processedImage) processedImage.src = processedImageUrl;
+                    // 서버 파일 URL에서 blob을 다시 받아서 nobgBlob 세팅
+                    const blobResp = await fetch(processedImageUrl, { cache: 'reload' });
+                    let contentType = blobResp.headers.get('content-type');
+                    if (!contentType || !contentType.startsWith('image/')) {
+                        // 재시도
+                        const retryResp = await fetch(processedImageUrl, { cache: 'no-store' });
+                        contentType = retryResp.headers.get('content-type');
+                        if (contentType && contentType.startsWith('image/')) {
+                            nobgBlob = await retryResp.blob();
+                        } else {
+                            showMessage('배경 제거 결과가 이미지가 아닙니다.', 'error');
+                            return false;
+                        }
+                    } else {
+                        nobgBlob = await blobResp.blob();
+                    }
+                    if (processedImage) processedImage.style.display = 'block';
+                    return true;
+                } else {
+                    const errorJson = await response.json();
+                    showMessage(errorJson.error || '배경 제거 중 오류가 발생했습니다.', 'error');
+                    return false;
+                }
+            } catch (error) {
+                showMessage(error.message, 'error');
+                return false;
+            }
+        }
+
+        async function analyzeEmotionInternal() {
+            try {
+                const formData = new FormData();
+                formData.append('image', currentFile);
+                
+                const response = await fetch('/analyze-emotion', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // 🎯 현재 감정 정보 저장
+                    currentEmotion = result.emotion;
+                    console.log('😊 현재 감정 업데이트:', currentEmotion);
+                    
+                    // 감정 피드백 표시
+                    if (result.feedback) {
+                        showEmotionFeedback(result.emotion, result.feedback);
+                    } else {
+                        showMessage(`감정 분석 결과: ${result.emotion} (${(result.confidence * 100).toFixed(1)}%)`, 'success');
+                    }
+                    return result;
+                } else {
+                    throw new Error(result.error || '감정 분석 중 오류가 발생했습니다.');
+                }
+            } catch (error) {
+                showMessage(error.message, 'error');
+                return null;
+            }
+        }
+
+        // 감정별 명화 데이터 (백엔드와 동일하게 실제 이미지/타이틀/작가/스타일 정보로 채움)
+        const ARTWORKS_BY_EMOTION = {
+            happy: [
+                {
+                    id: 'breezing_up',
+                    title: '바람을 타고',
+                    artist: 'Winslow Homer',
+                    image: '/BG_image/breezing_up_a_fair_wind_1943.13.1.jpg',
+
+                },
+                {
+                    id: 'dance_hall',
+                    title: '댄스 홀',
+                    artist: 'Pierre-Auguste Renoir',
+                    image: '/BG_image/dance_hall_bellevue_obverse_1989.60.1.a.jpg'
+                },
+                {
+                    id: 'harvest',
+                    title: '수확',
+                    artist: 'Vincent van Gogh',
+                    image: '/BG_image/the_harvest_1985.64.91.jpg'
+                },
+                {
+                    id: 'orchard',
+                    title: '꽃 핀 과수원',
+                    artist: 'Alfred Sisley',
+                    image: '/BG_image/orchard_in_bloom_louveciennes_1970.17.51.jpg'
+                }
+            ],
+            sad: [
+                {
+                    id: 'crucifixion',
+                    title: '작은 십자가',
+                    artist: 'Grunewald',
+                    image: '/BG_image/the_small_crucifixion_1961.9.19.jpg',
+
+                },
+                {
+                    id: 'evening_deluge',
+                    title: '대홍수의 저녁',
+                    artist: 'John Martin',
+                    image: '/BG_image/the_evening_of_the_deluge_1960.6.40.jpg'
+                },
+                {
+                    id: 'ships_distress',
+                    title: '위험에 처한 배들',
+                    artist: 'Claude-Joseph Vernet',
+                    image: '/BG_image/ships_in_distress_off_a_rocky_coast_1985.29.1.jpg'
+                },
+                {
+                    id: 'sebastian',
+                    title: '성 세바스티안',
+                    artist: 'Georges de La Tour',
+                    image: '/BG_image/saint_sebastian_succored_by_the_holy_women_1960.6.4.jpg'
+                }
+            ],
+            angry: [
+                {
+                    id: 'devil_words',
+                    title: '악마의 말',
+                    artist: 'Paul Gauguin',
+                    image: '/BG_image/parau_na_te_varua_ino_words_of_the_devil_1972.9.12.jpg'
+                },
+                {
+                    id: 'battle_love',
+                    title: '사랑의 전투',
+                    artist: 'Nicolas Poussin',
+                    image: '/BG_image/the_battle_of_love_1972.9.2.jpg'
+                },
+                {
+                    id: 'tiger_snake',
+                    title: '호랑이와 뱀',
+                    artist: 'Henri Rousseau',
+                    image: '/BG_image/tiger_and_snake_2014.136.30.jpg'
+                },
+                {
+                    id: 'scenes_legend',
+                    title: '전설의 장면',
+                    artist: 'Unknown',
+                    image: '/BG_image/scenes_from_a_legend_1939.1.344.b.jpg'
+                }
+            ],
+            surprised: [
+                {
+                    id: 'bathers',
+                    title: '목욕하는 사람들',
+                    artist: 'Paul Cézanne',
+                    image: '/BG_image/the_bathers_1951.5.1.jpg'
+                },
+                {
+                    id: 'festival_harbor',
+                    title: '항구의 축제',
+                    artist: 'Eugène Boudin',
+                    image: '/BG_image/festival_in_the_harbor_of_honfleur_1983.1.10.jpg'
+                },
+                {
+                    id: 'colza_harvest',
+                    title: '유채 수확',
+                    artist: 'Vincent van Gogh',
+                    image: '/BG_image/the_colza_harvesting_rapeseed_2014.136.21.jpg'
+                },
+                {
+                    id: 'dance_class',
+                    title: '댄스 클래스',
+                    artist: 'Edgar Degas',
+                    image: '/BG_image/the_dance_class_2014.79.710.jpg'
+                }
+            ],
+            neutral: [
+                {
+                    id: 'hampton',
+                    title: '초록정원',
+                    artist: 'hampton',
+                    image: '/BG_image/hampton_court_green_1970.17.53.jpg'
+                },
+                {
+                    id: 'normandy',
+                    title: '노르망디 해변',
+                    artist: 'bessin',
+                    image: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg'
+                },
+                {
+                    id: 'farmhouse_provence',
+                    title: '프로방스의 농가',
+                    artist: 'Vincent van Gogh',
+                    image: '/BG_image/farmhouse_in_provence_1970.17.34.jpg'
+                },
+                {
+                    id: 'harbor_lorient',
+                    title: '로리앙 항구',
+                    artist: 'Berthe Morisot',
+                    image: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg'
+                }
+            ]
+        };
+
+        // 감정 분석 결과의 emotion 값을 탭 키로 변환
+        function mapEmotionKey(emotion) {
+            if (emotion === 'happiness' || emotion === 'happy') return 'happy';
+            if (emotion === 'sadness' || emotion === 'sad') return 'sad';
+            if (emotion === 'anger' || emotion === 'angry') return 'angry';
+            if (emotion === 'surprise' || emotion === 'surprised') return 'surprised';
+            if (emotion === 'neutral') return 'neutral';
+            // fallback
+            return 'neutral';
+        }
+
+        // recommendArtworks 함수에서 감정 분석 결과로 자동 선택
+        async function recommendArtworks(emotion) {
+            console.log('🎨 명화 추천 요청 - 입력 감정:', emotion);
+            const key = mapEmotionKey(emotion);
+            console.log('🎨 매핑된 감정 키:', key);
+            console.log('🎨 해당 감정의 명화 목록:', ARTWORKS_BY_EMOTION[key]);
+            displayArtworkRecommendations(ARTWORKS_BY_EMOTION[key], key);
+        }
+
+        function displayArtworkRecommendations(artworks, emotion) {
+            const emotionText = {
+                'happy': '기쁨',
+                'happiness': '기쁨',
+                'sad': '슬픔',
+                'sadness': '슬픔',
+                'angry': '분노',
+                'anger': '분노',
+                'surprised': '놀람',
+                'surprise': '놀람',
+                'fear': '두려움',
+                'disgust': '혐오',
+                'neutral': '중립'
+            };
+
+            const container = document.getElementById('artworkRecommendationsContainer');
+            
+            // 서버에서 받은 새로운 형식 지원
+            if (artworks && artworks.length > 0 && artworks[0].thumbnail) {
+                console.log('🎨 썸네일 기반 명화 추천 표시:', artworks);
+                container.innerHTML = `
+                    <div class="artwork-recommendations">
+                        <h3>🎨 ${emotionText[emotion] || emotion}에 어울리는 명화 추천</h3>
+                        <div class="artwork-grid">
+                            ${artworks.map((artwork, index) => `
+                                <div class="artwork-item" onclick="selectArtworkByPath('${artwork.path}')">
+                                    <img src="${artwork.thumbnail}" 
+                                         alt="${artwork.title}" 
+                                         class="artwork-thumbnail loading"
+                                         loading="lazy"
+                                         data-original="${artwork.path}"
+                                         data-thumbnail="${artwork.thumbnail}"
+                                         onerror="handleThumbnailError(this, '${artwork.path}')"
+                                         onload="handleThumbnailLoad(this)"
+                                         ondblclick="loadOriginalImage(this, '${artwork.path}')">
+                                    <div class="artwork-info">
+                                        <h4>${artwork.title}</h4>
+                                        <p>${artwork.artist}</p>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <p style="text-align: center; color: var(--text-tertiary); font-size: 0.75rem; margin-top: var(--space-sm);">
+                            💡 명화를 더블클릭하면 고해상도 이미지를 볼 수 있습니다
+                        </p>
+                    </div>
+                `;
+            } else if (artworks && artworks.length > 0) {
+                // 기존 형식 지원 (하위 호환성)
+                console.log('🎨 기존 형식 명화 추천 표시:', artworks);
+                container.innerHTML = `
+                    <div class="artwork-recommendations">
+                        <h3>🎨 ${emotionText[emotion] || emotion}에 어울리는 명화 추천</h3>
+                        <div class="artwork-grid">
+                            ${artworks.map(artwork => `
+                                <div class="artwork-item" onclick="selectArtwork('${artwork.id}', '${artwork.image}')">
+                                    <img src="${artwork.image}" alt="${artwork.title}" class="artwork-thumbnail" loading="lazy">
+                                    <div class="artwork-info">
+                                        <h4>${artwork.title}</h4>
+                                        <p>${artwork.artist}</p>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } else {
+                console.log('🎨 명화 추천 데이터 없음');
+                container.innerHTML = `
+                    <div class="artwork-recommendations">
+                        <h3>🎨 ${emotionText[emotion] || emotion}에 어울리는 명화</h3>
+                        <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">
+                            추천할 명화를 불러오는 중입니다...
+                        </p>
+                    </div>
+                `;
+            }
+        }
+
+        // 1단계: 배경 제거 + 기본 합성
+        async function applyComposite(artworkId, backgroundImage) {
+            if (!nobgBlob) {
+                showMessage('먼저 배경이 제거된 이미지가 필요합니다.', 'error');
+                return;
+            }
+
+            showLoading(true);
+            hideMessage();
+
+            previewImage.src = '';
+            previewImage.style.background = 'url(/spinner.gif) center center no-repeat';
+            previewImage.style.minHeight = '120px';
+
+            try {
+                const formData = new FormData();
+                formData.append('image', nobgBlob, 'foreground_nobg.png');
+                formData.append('backgroundPath', backgroundImage);
+                formData.append('emotion', currentEmotion || 'neutral');
+
+                const headers = {};
+                if (authToken) {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+
+                const response = await fetch('/api/remove-bg', {
+                    method: 'POST',
+                    headers,
+                    body: formData
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    // 🎯 nobgPath 전역 저장
+                    lastNobgPath = result.nobgPath;
+                    console.log('🔄 nobgPath 저장:', lastNobgPath);
+                    
+                    // 1단계 결과 표시 (미리보기)
+                    // 🎯 Base64 이미지 우선 사용 (캐시 문제 완전 우회)
+                    if (result.imageBase64) {
+                        console.log('🚀 Base64 이미지 직접 로딩:', result.imageBase64.substring(0, 50) + '...');
+                        previewImage.src = result.imageBase64;
+                        previewImage.style.display = 'block';
+                    } else {
+                        // 폴백: 기존 URL 방식
+                        const timestamp = Date.now();
+                        const random = Math.random().toString(36).substr(2, 9);
+                        const cacheBuster = `?nocache=${timestamp}&r=${random}&reload=1&force=${Math.floor(Math.random() * 1000000)}`;
+                        const imageUrl = result.processedImageUrl + cacheBuster;
+                        console.log('⚠️ Base64 없음, URL 방식 사용:', imageUrl);
+                        
+                        previewImage.src = '';
+                        previewImage.style.display = 'none';
+                        
+                        setTimeout(() => {
+                            previewImage.src = imageUrl;
+                            previewImage.style.display = 'block';
+                        }, 100);
+                    }
+                    previewImage.onload = () => {
+                        const logMsg = result.imageBase64 ? 'Base64 이미지' : result.processedImageUrl;
+                        console.log('✅ 미리보기 이미지 로드 성공:', logMsg);
+                        resultSection.style.display = 'block';
+                        // 브러쉬 결과가 있으면 유지, 없으면 숨기기
+                        if (!brushResultImage.src || brushResultImage.src === '') {
+                            brushResultSection.style.display = 'none';
+                        }
+                    };
+                    
+                    // 🎯 에러 핸들러 제거 - 이미지가 정상적으로 보이고 있으므로 불필요한 에러 메시지 방지
+                    previewImage.onerror = () => {
+                        console.log('⚠️ 이미지 로드 이벤트 에러 (무시)');
+                    };
+                    
+                    // 🎯 감정 분석 결과 표시 (복원)
+                    if (result.emotion && result.feedback) {
+                        // 🎯 현재 감정 정보 저장
+                        currentEmotion = result.emotion;
+                        console.log('😊 현재 감정 업데이트 (배경 합성):', currentEmotion);
+                        showEmotionFeedback(result.emotion, result.feedback);
+                    }
+                    
+                    // 🎨 새로운 썸네일 기반 명화 추천 표시
+                    if (result.artworkRecommendations && result.artworkRecommendations.length > 0) {
+                        console.log('🎨 서버에서 받은 썸네일 기반 명화 추천:', result.artworkRecommendations);
+                        displayArtworkRecommendations(result.artworkRecommendations, result.emotion);
+                        
+                        // 썸네일 프리로딩 시작
+                        setTimeout(() => preloadThumbnails(result.artworkRecommendations), 100);
+                    } else if (result.emotion) {
+                        // 기존 방식 폴백
+                        console.log('🎨 기존 방식으로 명화 추천 표시');
+                        const emotionKey = {
+                            'happiness': 'happy',
+                            'sadness': 'sad',
+                            'anger': 'angry',
+                            'surprise': 'surprised',
+                            'fear': 'neutral',
+                            'disgust': 'neutral',
+                            'neutral': 'neutral'
+                        }[result.emotion] || 'neutral';
+                        
+                        if (ARTWORKS_BY_EMOTION[emotionKey]) {
+                            displayArtworkRecommendations(ARTWORKS_BY_EMOTION[emotionKey], emotionKey);
+                        }
+                    }
+                    
+                    // 브러쉬 효과 버튼 표시
+                    showBrushEffectButton(result.nobgPath, backgroundImage, result.emotion);
+                    
+                    // 1단계 완료 메시지
+                    showMessage('배경 합성이 완료되었습니다! 인물브러쉬효과를 적용해보세요.', 'success');
+                } else {
+                    throw new Error(result.error || '배경 합성에 실패했습니다.');
+                }
+            } catch (error) {
+                showMessage('배경 합성 중 오류가 발생했습니다: ' + error.message, 'error');
+                previewImage.style.background = '';
+                previewImage.style.minHeight = '';
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 2단계: 브러쉬 효과 적용
+        async function applyBrushEffect(nobgPath, backgroundPath, emotion) {
+            // 🎯 매개변수 검증
+            if (!nobgPath || !backgroundPath) {
+                showMessage(`브러시 효과 적용에 필요한 정보가 부족합니다. nobgPath: ${nobgPath}, backgroundPath: ${backgroundPath}`, 'error');
+                return;
+            }
+            
+            console.log('🎨 브러시 효과 적용 시작:', { nobgPath, backgroundPath, emotion });
+            
+            // 🎯 중복 실행 방지
+            if (isBrushProcessing) {
+                console.log('⏸️ 브러시 효과 처리 중 - 대기 중인 요청으로 등록');
+                pendingBrushUpdate = { nobgPath, backgroundPath, emotion };
+                return;
+            }
+            
+            isBrushProcessing = true;
+            showLoading(true);
+            hideMessage();
+
+            try {
+                const requestData = {
+                    nobgPath: nobgPath,
+                    backgroundPath: backgroundPath,
+                    emotion: emotion || 'neutral'
+                };
+                
+                console.log('🎨 브러시 효과 API 요청 데이터:', requestData);
+                
+                const response = await fetch('/api/apply-brush-effect', {
+                        method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ 브러시 효과 API 오류:', response.status, errorText);
+                    throw new Error(`브러시 효과 적용 실패 (${response.status}): ${errorText}`);
+                }
+                
+                const result = await response.json();
+                console.log('✅ 브러시 효과 API 응답:', result);
+                
+                if (result.error) {
+                    throw new Error(result.error);
+                }
+                
+                // 2단계 결과 표시 (브러쉬 효과 적용됨)
+                                            // 브러시 결과에도 강력한 캐시 무효화 적용
+                        const brushTimestamp = Date.now();
+                        const brushRandom = Math.random().toString(36).substr(2, 9);
+                        const brushCacheBuster = `?nocache=${brushTimestamp}&r=${brushRandom}&reload=1&force=${Math.floor(Math.random() * 1000000)}`;
+                        const brushImageUrl = result.processedImageUrl + brushCacheBuster;
+                        
+                        console.log('브러시 이미지 로드 시도 (강력한 캐시 무효화):', brushImageUrl);
+                        
+                        // 브러시 이미지도 리셋 후 로드
+                        brushResultImage.src = '';
+                        brushResultImage.style.display = 'none';
+                        
+                        setTimeout(() => {
+                            brushResultImage.src = brushImageUrl;
+                            brushResultImage.style.display = 'block';
+                        }, 100);
+                        brushResultImage.onload = () => {
+                            console.log('브러쉬 효과 이미지 로드 성공:', brushImageUrl);
+                            brushResultSection.style.display = 'block'; // 브러쉬 결과 섹션 표시
+                        };
+                        // 🎯 에러 핸들러 단순화 - 불필요한 에러 메시지 방지
+                        brushResultImage.onerror = () => {
+                            console.log('⚠️ 브러시 이미지 로드 이벤트 에러 (무시)');
+                        };
+                        downloadLink.href = result.processedImageUrl; // 다운로드는 원본 URL 사용 (캐시 버스터 불필요)
+                    
+                    // 브러쉬 효과 버튼 숨기기
+                    hideBrushEffectButton();
+                    
+                    // 2단계 완료 메시지
+                    showMessage('인물브러쉬효과가 적용되었습니다!', 'success');
+            } catch (error) {
+                showMessage('브러쉬 효과 적용 중 오류가 발생했습니다: ' + error.message, 'error');
+            } finally {
+                isBrushProcessing = false;
+                showLoading(false);
+                
+                // 🎯 대기 중인 브러시 요청이 있으면 처리
+                if (pendingBrushUpdate) {
+                    console.log('🚀 대기 중인 브러시 효과 요청 처리:', pendingBrushUpdate);
+                    const pending = pendingBrushUpdate;
+                    pendingBrushUpdate = null;
+                    
+                    // 약간의 지연 후 처리 (UI 업데이트 완료 대기)
+                    setTimeout(() => {
+                        applyBrushEffect(pending.nobgPath, pending.backgroundPath, pending.emotion);
+                    }, 100);
+                }
+            }
+        }
+
+        // 브러쉬 효과 버튼 표시
+        function showBrushEffectButton(nobgPath, backgroundPath, emotion) {
+            const brushButton = document.getElementById('brushEffectBtn');
+            if (brushButton) {
+                brushButton.style.display = 'block';
+                brushButton.onclick = () => applyBrushEffect(nobgPath, backgroundPath, emotion);
+            }
+        }
+
+        // 브러쉬 효과 버튼 숨기기
+        function hideBrushEffectButton() {
+            const brushButton = document.getElementById('brushEffectBtn');
+            if (brushButton) {
+                brushButton.style.display = 'none';
+            }
+        }
+
+        // 썸네일 로딩 완료 처리
+        function handleThumbnailLoad(img) {
+            console.log('🖼️ 썸네일 로드 완료:', img.src);
+            img.classList.remove('loading');
+            img.classList.add('loaded');
+        }
+        
+        // 썸네일 로딩 에러 처리
+        function handleThumbnailError(img, originalPath) {
+            console.log('❌ 썸네일 로드 실패, 원본으로 폴백:', img.src, '→', originalPath);
+            img.classList.remove('loading');
+            img.classList.add('error');
+            
+            // 원본 이미지로 폴백 시도
+            setTimeout(() => {
+                img.src = originalPath;
+                img.onerror = () => {
+                    console.log('❌ 원본 이미지도 로드 실패:', originalPath);
+                    img.classList.add('error');
+                };
+                img.onload = () => {
+                    console.log('✅ 원본 이미지 폴백 성공:', originalPath);
+                    img.classList.remove('error');
+                    img.classList.add('loaded');
+                };
+            }, 100);
+        }
+        
+        // 원본 이미지 로딩 (더블클릭)
+        function loadOriginalImage(img, originalPath) {
+            console.log('🔍 고해상도 이미지 로딩:', originalPath);
+            
+            // 이미 원본이면 스킵
+            if (img.src.includes(originalPath)) {
+                console.log('⏭️ 이미 원본 이미지입니다');
+                return;
+            }
+            
+            // 로딩 상태 표시
+            img.classList.add('loading');
+            
+            // 임시 이미지 객체로 원본 로딩 테스트
+            const tempImg = new Image();
+            tempImg.onload = () => {
+                console.log('✅ 고해상도 이미지 로드 완료:', originalPath);
+                img.src = originalPath;
+                img.classList.remove('loading');
+                img.classList.add('loaded');
+                
+                // 사용자에게 알림
+                showMessage('고해상도 이미지로 업그레이드되었습니다! 🎨', 'success');
+            };
+            tempImg.onerror = () => {
+                console.log('❌ 고해상도 이미지 로드 실패:', originalPath);
+                img.classList.remove('loading');
+                showMessage('고해상도 이미지를 불러올 수 없습니다.', 'error');
+            };
+            tempImg.src = originalPath;
+        }
+        
+        // 썸네일 캐시 프리로딩 (성능 향상)
+        function preloadThumbnails(artworks) {
+            if (!artworks || !Array.isArray(artworks)) return;
+            
+            console.log('🚀 썸네일 프리로딩 시작:', artworks.length + '개');
+            let loadedCount = 0;
+            
+            artworks.forEach((artwork, index) => {
+                if (artwork.thumbnail) {
+                    const img = new Image();
+                    img.onload = () => {
+                        loadedCount++;
+                        console.log(`📥 썸네일 프리로드 ${loadedCount}/${artworks.length}: ${artwork.thumbnail}`);
+                        
+                        if (loadedCount === artworks.length) {
+                            console.log('✅ 모든 썸네일 프리로딩 완료');
+                        }
+                    };
+                    img.onerror = () => {
+                        console.log(`❌ 썸네일 프리로드 실패: ${artwork.thumbnail}`);
+                        loadedCount++;
+                    };
+                    img.src = artwork.thumbnail;
+                }
+            });
+        }
+
+        // 새로운 썸네일 기반 명화 선택 함수
+        async function selectArtworkByPath(backgroundPath) {
+            console.log('🎨 썸네일 기반 명화 선택:', backgroundPath);
+            
+            // 🎯 현재 배경 정보 저장
+            currentBackground = backgroundPath;
+            console.log('🖼️ 현재 배경 업데이트:', currentBackground);
+            
+            // 🎯 기존 브러시 효과 적용 여부 확인
+            const hasBrushEffect = brushResultSection.style.display === 'block' && 
+                                 brushResultImage.src && 
+                                 brushResultImage.src !== '' && 
+                                 brushResultImage.src !== window.location.href;
+            
+            console.log('배경 변경 - 브러시 효과 적용 여부:', hasBrushEffect);
+            
+            // 선택된 명화로 배경 합성 실행 (artworkId는 null 사용)
+            await applyComposite(null, backgroundPath);
+            
+            // 🚀 기존에 브러시 효과가 적용되어 있었다면, 새 배경으로 즉시 재적용
+            if (hasBrushEffect && lastNobgPath) {
+                console.log('🎨 새로운 배경으로 브러시 효과 즉시 재적용 시작');
+                console.log('🔄 사용할 nobgPath:', lastNobgPath);
+                
+                try {
+                    await applyBrushEffect(lastNobgPath, backgroundPath, currentEmotion || 'neutral');
+                    console.log('✅ 새 배경으로 브러시 효과 재적용 완료');
+                } catch (error) {
+                    console.error('❌ 브러시 효과 재적용 실패:', error);
+                    showMessage('브러시 효과 재적용 중 오류가 발생했습니다.', 'error');
+                }
+            }
+        }
+
+        // 기존 ID 기반 명화 선택 함수 (하위 호환성)
+        async function selectArtwork(artworkId, backgroundImage) {
+            // 🎯 현재 배경 정보 저장
+            currentBackground = backgroundImage;
+            console.log('🖼️ 현재 배경 업데이트:', currentBackground);
+            
+            // 🎯 기존 브러시 효과 적용 여부 확인
+            const hasBrushEffect = brushResultSection.style.display === 'block' && 
+                                 brushResultImage.src && 
+                                 brushResultImage.src !== '' && 
+                                 brushResultImage.src !== window.location.href;
+            
+            console.log('배경 변경 - 브러시 효과 적용 여부:', hasBrushEffect);
+            
+            // 선택된 명화로 배경 합성 실행
+                await applyComposite(artworkId, backgroundImage);
+            
+            // 🚀 기존에 브러시 효과가 적용되어 있었다면, 새 배경으로 즉시 재적용
+            if (hasBrushEffect && lastNobgPath) {
+                console.log('🎨 새로운 배경으로 브러시 효과 즉시 재적용 시작');
+                console.log('🔄 사용할 nobgPath:', lastNobgPath);
+                
+                // 🎯 중복 방지 로직에 의해 자동으로 대기열에 추가됨
+                try {
+                    await applyBrushEffect(lastNobgPath, backgroundImage, currentEmotion || 'neutral');
+                    console.log('✅ 새 배경으로 브러시 효과 재적용 완료');
+                } catch (error) {
+                    console.error('❌ 브러시 효과 재적용 실패:', error);
+                    showMessage('브러시 효과 재적용 중 오류가 발생했습니다.', 'error');
+                }
+            }
+        }
+
+        async function removeBackground() {
+            if (!currentFile) {
+                showMessage('먼저 이미지를 업로드해주세요.', 'error');
+                return;
+            }
+
+            showLoading(true);
+            hideMessage();
+
+            const formData = new FormData();
+            formData.append('image', currentFile);
+
+            try {
+                const response = await fetch('/api/remove-bg', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    processedImageUrl = result.processedImageUrl;
+                    if (processedImage) processedImage.src = processedImageUrl;
+                    if (processedImage) processedImage.style.display = 'block';
+                    showMessage('배경이 성공적으로 제거되었습니다!', 'success');
+                } else {
+                    throw new Error(result.error || '배경 제거 중 오류가 발생했습니다.');
+                }
+            } catch (error) {
+                showMessage(error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function analyzeEmotion() {
+            if (!currentFile) {
+                showMessage('먼저 이미지를 업로드해주세요.', 'error');
+                return;
+            }
+
+            showLoading(true);
+            hideMessage();
+
+            const formData = new FormData();
+            formData.append('image', currentFile);
+
+            try {
+                const response = await fetch('/analyze-emotion', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage(`감정 분석 결과: ${result.emotion} (${result.confidence}%)`, 'success');
+                } else {
+                    throw new Error(result.error || '감정 분석 중 오류가 발생했습니다.');
+                }
+            } catch (error) {
+                showMessage(error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function resetImage() {
+            currentFile = null;
+            processedImageUrl = null;
+            nobgBlob = null;
+            fileInput.value = '';
+            if (imagePreview) imagePreview.style.display = 'none';
+            controls.style.display = 'none';
+            resultSection.style.display = 'none';
+            brushResultSection.style.display = 'none';
+            hideBrushEffectButton();
+            hideMessage();
+            hideEmotionFeedback();
+        }
+
+        function showLoading(show) {
+            loading.style.display = show ? 'block' : 'none';
+            controls.style.display = show ? 'none' : 'flex';
+        }
+
+        // 이미지 준비 상태 확인 함수 (단순화 및 강화)
+        async function waitForImageReady(filename, maxAttempts = 15) {
+            console.log('이미지 준비 상태 확인 시작:', filename);
+            
+            for (let i = 0; i < maxAttempts; i++) {
+                try {
+                    // 이미지 상태 확인 API 호출
+                    const checkResponse = await fetch(`/api/check-image/${filename}`, {
+                        method: 'GET',
+                        cache: 'no-store',
+                        headers: {
+                            'Cache-Control': 'no-cache, no-store, must-revalidate',
+                            'Pragma': 'no-cache'
+                        }
+                    });
+                    
+                    if (checkResponse.ok) {
+                        const result = await checkResponse.json();
+                        
+                        if (result.ready && result.size > 1000) {
+                            console.log(`✅ 이미지 준비 완료 (${i + 1}/${maxAttempts}):`, result.size, 'bytes');
+                            
+                            // 추가 검증: 실제 이미지 파일에 직접 HEAD 요청
+                            try {
+                                const imageResponse = await fetch(`/uploads/${filename}`, {
+                                    method: 'HEAD',
+                                    cache: 'no-store'
+                                });
+                                
+                                if (imageResponse.ok) {
+                                    const contentLength = imageResponse.headers.get('content-length');
+                                    console.log(`✅ 실제 이미지 파일 확인 완료:`, contentLength, 'bytes');
+                                    return true;
+                                } else {
+                                    console.log(`⚠️ 이미지 파일 HEAD 요청 실패 (${i + 1}/${maxAttempts}):`, imageResponse.status);
+                                }
+                            } catch (headError) {
+                                console.log(`⚠️ 이미지 HEAD 요청 오류 (${i + 1}/${maxAttempts}):`, headError.message);
+                            }
+                        } else {
+                            console.log(`⏳ 이미지 준비 중 (${i + 1}/${maxAttempts}):`, result.size || 0, 'bytes');
+                        }
+                    } else {
+                        console.log(`❌ 상태 확인 실패 (${i + 1}/${maxAttempts}):`, checkResponse.status);
+                    }
+                } catch (error) {
+                    console.log(`❌ 상태 확인 오류 (${i + 1}/${maxAttempts}):`, error.message);
+                }
+                
+                // 점진적으로 대기 시간 증가 (더 긴 간격)
+                const waitTime = Math.min(800 + (i * 200), 3000);
+                console.log(`⏰ ${waitTime}ms 대기 후 재시도...`);
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+            }
+            
+            console.error('❌ 이미지 준비 상태 확인 포기:', filename);
+            return false;
+        }
+
+        function showMessage(text, type) {
+            message.innerHTML = `<div class="${type}">${text}</div>`;
+        }
+
+        function hideMessage() {
+            message.innerHTML = '';
+        }
+
+        // 감정별 아이콘 매핑 (더 이상 사용하지 않음 - 이미지로 대체)
+
+        // 감정별 제목 매핑
+        const emotionTitles = {
+            'happy': '행복한 순간',
+            'happiness': '행복한 순간',
+            'sad': '슬픈 마음',
+            'sadness': '슬픈 마음',
+            'neutral': '평온한 순간',
+            'fear': '불안한 마음',
+            'surprise': '놀라운 순간',
+            'surprised': '놀라운 순간',
+            'angry': '화난 마음',
+            'anger': '화난 마음',
+            'disgust': '역겨운 느낌',
+            'contempt': '경멸하는 마음'
+        };
+
+        // 감정별 이미지 파일 매핑
+        function getEmotionImage(emotion) {
+            const emotionImages = {
+                'happiness': '/happy.png',
+                'happy': '/happy.png',
+                'sadness': '/sad.png',
+                'sad': '/sad.png', 
+                'anger': '/angry.png',
+                'angry': '/angry.png',
+                'surprise': '/surprise.png',
+                'surprised': '/surprise.png',
+                'fear': '/fear.png',
+                'disgust': '/disgust.png',
+                'neutral': '/neutral.png',
+                'contempt': '/contempt.png'
+            };
+            return emotionImages[emotion] || '/neutral.png';
+        }
+
+        function showEmotionFeedback(emotion, feedback) {
+            const emotionImg = document.getElementById('emotionImg');
+            if (emotionImg) {
+                emotionImg.src = getEmotionImage(emotion);
+                emotionImg.alt = emotion;
+                
+                // 강제로 크기 설정
+                emotionImg.style.width = '128px';
+                emotionImg.style.height = '128px';
+                emotionImg.style.minWidth = '128px';
+                emotionImg.style.minHeight = '128px';
+                emotionImg.style.maxWidth = '128px';
+                emotionImg.style.maxHeight = '128px';
+                emotionImg.style.borderRadius = '0';
+                emotionImg.style.border = 'none';
+                emotionImg.style.objectFit = 'contain';
+                emotionImg.style.objectPosition = 'center center';
+                emotionImg.style.margin = '20px auto 10px auto';
+                emotionImg.style.padding = '0';
+                emotionImg.style.boxSizing = 'border-box';
+                emotionImg.style.display = 'block';
+                emotionImg.style.clipPath = 'none';
+                emotionImg.style.mask = 'none';
+            }
+            
+            const title = emotionTitles[emotion] || '감정 분석 결과';
+            
+            emotionTitle.textContent = title;
+            emotionMessage.textContent = feedback;
+            emotionFeedback.style.display = 'block';
+        }
+
+        function hideEmotionFeedback() {
+            emotionFeedback.style.display = 'none';
+        }
+
+        // Firebase 인증 함수들 (head에 이미 정의됨)
+
+        async function handleSignup(e) {
+            e.preventDefault();
+            const username = document.getElementById('authUsername').value;
+            const email = document.getElementById('authEmail').value;
+            const password = document.getElementById('authPassword').value;
+
+            try {
+                const response = await fetch('/api/auth/signup', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, email, password })
+                });
+
+                if (response.status === 503) {
+                    showMessage('Firebase Admin이 초기화되지 않아 회원가입 기능을 사용할 수 없습니다.', 'warning');
+                    return;
+                }
+
+                const data = await response.json();
+                if (data.success || data.token) {
+                    // 서버 JWT를 직접 저장 및 UI 갱신
+                    localStorage.setItem('token', data.token);
+                    authToken = data.token;
+                    currentUser = data.user;
+                    closeAuthModal();
+                    updateAuthUI();
+                    showMessage('회원가입이 완료되었습니다!', 'success');
+                } else {
+                    showMessage(data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('회원가입 중 오류가 발생했습니다.', 'error');
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('authEmail').value;
+            const password = document.getElementById('authPassword').value;
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+
+                if (response.status === 503) {
+                    showMessage('Firebase Admin이 초기화되지 않아 로그인 기능을 사용할 수 없습니다.', 'warning');
+                    return;
+                }
+
+                const data = await response.json();
+                console.log('🔐 로그인 응답:', data);
+                if (data.success || data.token) {
+                    // 서버 JWT를 직접 저장 및 UI 갱신
+                    console.log('✅ 토큰 저장:', data.token?.substring(0, 50) + '...');
+                    localStorage.setItem('token', data.token);
+                    authToken = data.token;
+                    currentUser = data.user;
+                    console.log('👤 사용자 정보 설정:', currentUser);
+                    
+                    // 사용자 정보도 localStorage에 저장
+                    if (currentUser) {
+                        localStorage.setItem('userId', currentUser.id);
+                        localStorage.setItem('username', currentUser.username || '');
+                        localStorage.setItem('email', currentUser.email || '');
+                    }
+                    
+                    // localStorage 저장 확인
+                    console.log('💾 localStorage 저장 확인:', {
+                        token: localStorage.getItem('token')?.substring(0, 50) + '...',
+                        userId: localStorage.getItem('userId'),
+                        username: localStorage.getItem('username'),
+                        email: localStorage.getItem('email'),
+                        authToken: authToken?.substring(0, 50) + '...'
+                    });
+                    
+                    closeAuthModal();
+                    updateAuthUI();
+                    showMessage('로그인이 완료되었습니다!', 'success');
+                } else {
+                    showMessage(data.error, 'error');
+                }
+            } catch (error) {
+                showMessage('로그인 중 오류가 발생했습니다.', 'error');
+            }
+        }
+
+        // signInWithCustomToken 함수 및 Firebase 인증 관련 코드 제거 또는 미사용 처리
+
+        function updateAuthUI() {
+            if (currentUser) {
+                document.getElementById('navLoginBtn').style.display = 'none';
+                document.getElementById('navSignupBtn').style.display = 'none';
+                // 회원 이름(닉네임/이메일 전체) 표시
+                document.getElementById('navAvatar').textContent = (currentUser.displayName || currentUser.email);
+                document.getElementById('navAvatar').style.display = 'flex';
+                document.getElementById('navLogoutBtn').style.display = 'block';
+                document.getElementById('gallerySection').style.display = 'block';
+            } else {
+                document.getElementById('navLoginBtn').style.display = 'block';
+                document.getElementById('navSignupBtn').style.display = 'block';
+                document.getElementById('navAvatar').style.display = 'none';
+                document.getElementById('navLogoutBtn').style.display = 'none';
+                document.getElementById('gallerySection').style.display = 'none';
+            }
+        }
+
+        async function logout() {
+            try {
+                // Firebase 로그아웃 시도
+                await auth.signOut();
+                currentUser = null;
+                authToken = null;
+                
+                // localStorage에서 모든 인증 정보 삭제
+                localStorage.removeItem('token');
+                localStorage.removeItem('userId');
+                localStorage.removeItem('username');
+                localStorage.removeItem('email');
+                
+                console.log('🚪 로그아웃 완료, localStorage 정리됨');
+                updateAuthUI();
+                showMessage('로그아웃되었습니다.', 'success');
+            } catch (error) {
+                console.error('로그아웃 오류:', error);
+                showMessage('로그아웃 중 오류가 발생했습니다.', 'error');
+            }
+        }
+
+        // 갤러리 저장 함수 (로컬 갤러리 사용)
+        async function saveToGallery() {
+            console.log('🎯 로컬 갤러리 저장 시작');
+            
+            const brushResultImage = document.getElementById('brushResultImage');
+            if (!brushResultImage || !brushResultImage.src) {
+                console.log('❌ 브러시 결과 이미지 없음');
+                showMessage('저장할 이미지가 없습니다. 먼저 브러시 효과를 적용해주세요.', 'error');
+                return;
+            }
+            console.log('✅ 브러시 결과 이미지 확인:', brushResultImage.src.substring(0, 100) + '...');
+            
+            try {
+                const imageUrl = brushResultImage.src;
+                // URL에서 파일명만 추출 (예: /uploads/filename.png -> filename.png)
+                const urlPath = new URL(imageUrl, window.location.origin).pathname;
+                
+                console.log('🏠 로컬 갤러리 저장 데이터:', { imageUrl: urlPath });
+                
+                // 로컬 갤러리 사용 (Firebase 인증 문제 우회)
+                const response = await fetch('/api/my-art', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        imageUrl: urlPath,
+                        createdAt: Date.now()
+                    })
+                });
+                
+                console.log('📨 응답 상태:', response.status, response.statusText);
+                
+                if (!response.ok) {
+                    throw new Error(`서버 오류: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage('✅ 갤러리에 성공적으로 저장되었습니다!', 'success');
+                    console.log('✅ 갤러리 저장 완료:', result.id);
+                    
+                    // 갤러리가 현재 표시되어 있다면 새로고침
+                    const gallerySection = document.getElementById('gallerySection');
+                    if (gallerySection && gallerySection.style.display !== 'none') {
+                        loadGallery();
+                    }
+                } else {
+                    throw new Error(result.error || '갤러리 저장 중 오류가 발생했습니다.');
+                }
+                
+            } catch (error) {
+                console.error('❌ 갤러리 저장 오류:', error);
+                showMessage('갤러리 저장 중 오류가 발생했습니다: ' + error.message, 'error');
+            }
+        }
+
+        // 토큰 갱신 함수
+        async function refreshAuthToken() {
+            try {
+                // Firebase auth에서 현재 사용자 가져오기
+                const firebaseUser = auth.currentUser;
+                if (!firebaseUser) {
+                    console.log('Firebase 사용자가 로그인하지 않았습니다.');
+                    return false;
+                }
+                
+                console.log('🔄 토큰 갱신 시작...', firebaseUser.uid);
+                const newToken = await firebaseUser.getIdToken(true); // force refresh
+                authToken = newToken;
+                console.log('✅ 토큰 갱신 완료');
+                return true;
+            } catch (error) {
+                console.error('❌ 토큰 갱신 실패:', error);
+                return false;
+            }
+        }
+
+        // 갤러리 함수들 (로컬 갤러리 사용)
+        function showGallery() {
+            // 로그인 없이도 로컬 갤러리 사용 가능
+            
+            // 갤러리 섹션 토글 (표시/숨김)
+            const gallerySection = document.getElementById('gallerySection');
+            if (gallerySection) {
+                if (gallerySection.style.display === 'none' || gallerySection.style.display === '') {
+                    // 갤러리 표시
+                    gallerySection.style.display = 'block';
+                    // 갤러리로 스크롤
+                    gallerySection.scrollIntoView({ behavior: 'smooth' });
+                    // 갤러리 로드
+                    loadGallery();
+                } else {
+                    // 갤러리 숨김
+                    gallerySection.style.display = 'none';
+                }
+            }
+        }
+        
+        async function loadGallery() {
+            console.log('🎯 갤러리 로드 시작');
+            console.log('🔍 Firebase auth 상태:', auth.currentUser ? 'logged in' : 'not logged in');
+            console.log('🔍 현재 사용자 정보:', currentUser);
+            
+            // 로컬 갤러리 사용 (Firebase 인증 문제 우회)
+            try {
+                const response = await fetch('/api/my-art');
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log(`✅ 로컬 갤러리 로드 성공: ${data.items ? data.items.length : 0}개 항목`);
+                    displayGallery(data.items || []);
+                } else {
+                    console.error('❌ 로컬 갤러리 로드 실패:', data.error);
+                    displayGallery([]);
+                }
+            } catch (error) {
+                console.error('갤러리 로드 오류:', error);
+                displayGallery([]);
+            }
+            return;
+
+            try {
+                // localStorage에서 토큰 확인
+                const localToken = localStorage.getItem('token');
+                if (!localToken) {
+                    console.log('❌ localStorage에 토큰이 없습니다.');
+                    showMessage('로그인이 필요합니다.', 'error');
+                    return;
+                }
+                
+                authToken = localToken; // 토큰 업데이트
+                console.log('✅ 갤러리 조회용 토큰 확인:', authToken.substring(0, 50) + '...');
+
+                const response = await fetch('/api/gallery', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                console.log('📨 갤러리 조회 응답 상태:', response.status, response.statusText);
+
+                if (response.status === 503) {
+                    // Firebase Admin이 초기화되지 않은 경우
+                    displayGallery([]);
+                    showMessage('Firebase Admin이 초기화되지 않아 갤러리 기능을 사용할 수 없습니다.', 'warning');
+                    return;
+                }
+
+                if (response.status === 401) {
+                    // 토큰 만료 또는 무효 - 토큰 갱신 시도
+                    console.log('토큰이 만료되었습니다. 토큰을 갱신합니다.');
+                    const refreshSuccess = await refreshAuthToken();
+                    if (refreshSuccess) {
+                        // 토큰 갱신 성공 시 다시 시도
+                        return loadGallery();
+                    } else {
+                        // 토큰 갱신 실패 시 로그인 필요
+                        showMessage('토큰 갱신에 실패했습니다. 다시 로그인해주세요.', 'error');
+                        return;
+                    }
+                }
+
+                if (response.status === 403) {
+                    showMessage('갤러리 접근 권한이 없습니다. 다시 로그인해주세요.', 'error');
+                    return;
+                }
+
+                const data = await response.json();
+                console.log('📄 갤러리 조회 응답 데이터:', data);
+                
+                if (data.success) {
+                    console.log(`✅ 갤러리 로드 성공: ${data.gallery ? data.gallery.length : 0}개 항목`);
+                    displayGallery(data.gallery);
+                } else {
+                    console.error('❌ 갤러리 로드 실패:', data.error);
+                    showMessage('갤러리 로드 중 오류가 발생했습니다: ' + (data.error || ''), 'error');
+                }
+            } catch (error) {
+                console.error('갤러리 로드 오류:', error);
+                showMessage('갤러리 로드 중 오류가 발생했습니다.', 'error');
+            }
+        }
+
+        let isAllSelected = false;
+        function toggleSelectAllGallery() {
+            const checkboxes = document.querySelectorAll('.gallery-checkbox');
+            isAllSelected = !isAllSelected;
+            checkboxes.forEach(cb => {
+                cb.checked = isAllSelected;
+                cb.dispatchEvent(new Event('click', { bubbles: true }));
+            });
+            // 버튼 텍스트 토글
+            document.getElementById('selectAllBtn').textContent = isAllSelected ? '전체해제' : '전체선택';
+        }
+
+        function displayGallery(gallery) {
+            console.log('🖼️ 갤러리 화면 표시 시작');
+            console.log('📊 갤러리 데이터:', gallery);
+            console.log(`📈 갤러리 아이템 수: ${gallery ? gallery.length : 0}`);
+            
+            const grid = document.getElementById('galleryGrid');
+            if (!grid) {
+                console.error('❌ galleryGrid 요소를 찾을 수 없습니다.');
+                return;
+            }
+            
+            grid.innerHTML = '';
+            // 로컬 갤러리에서는 선택 기능 비활성화
+            selectedGalleryIds = [];
+            
+            if (!gallery || gallery.length === 0) {
+                console.log('📭 표시할 갤러리 항목이 없습니다.');
+                grid.innerHTML = '<p>저장된 작품이 없습니다.</p>';
+                return;
+            }
+            gallery.forEach((artwork, index) => {
+                console.log(`🖼️ 갤러리 아이템 ${index + 1} 생성 중:`, artwork);
+                
+                const item = document.createElement('div');
+                item.className = 'gallery-item';
+                
+                // 이미지 썸네일 (로컬 갤러리용 간소화)
+                const img = document.createElement('img');
+                const imageUrl = artwork.imageUrl.startsWith('/') ? artwork.imageUrl : '/' + artwork.imageUrl;
+                img.src = imageUrl;
+                img.alt = artwork.title || '나의 작품';
+                console.log(`📸 이미지 URL 설정: ${imageUrl}`);
+                
+                img.onload = () => {
+                    console.log(`✅ 갤러리 이미지 로드 성공: ${imageUrl}`);
+                };
+                img.onerror = () => {
+                    console.error(`❌ 갤러리 이미지 로드 실패: ${imageUrl}`);
+                };
+                
+                img.onclick = () => showGalleryModal(artwork.imageUrl, '나의 작품', new Date(artwork.createdAt || Date.now()).toLocaleString('ko-KR'));
+                item.appendChild(img);
+                
+                // 제목 및 날짜 추가 (로컬 갤러리용)
+                const info = document.createElement('div');
+                info.className = 'gallery-item-info';
+                info.innerHTML = `
+                    <h4>나의 작품</h4>
+                    <p>${new Date(artwork.createdAt || Date.now()).toLocaleDateString('ko-KR')}</p>
+                `;
+                item.appendChild(info);
+                
+                grid.appendChild(item);
+                console.log(`✅ 갤러리 아이템 ${index + 1} 추가 완료`);
+            });
+        }
+
+        async function deleteArtwork(artworkId) {
+            if (!confirm('이 작품을 삭제하시겠습니까?')) return;
+
+            try {
+                const response = await fetch(`/api/gallery/${artworkId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    showMessage('작품이 삭제되었습니다.', 'success');
+                    loadGallery();
+                } else {
+                    showMessage('작품 삭제 중 오류가 발생했습니다.', 'error');
+                }
+            } catch (error) {
+                console.error('작품 삭제 오류:', error);
+                showMessage('작품 삭제 중 오류가 발생했습니다.', 'error');
+            }
+        }
+
+        // Firebase 인증 상태/토큰 변경 리스너 (항상 최신 토큰을 localStorage에 저장)
+        auth.onIdTokenChanged(async (user) => {
+            currentUser = user;
+            if (user) {
+                const token = await user.getIdToken();
+                authToken = token;
+                localStorage.setItem('token', token); // 항상 최신 토큰 저장
+                updateAuthUI();
+                loadGallery();
+            } else {
+                authToken = null;
+                localStorage.removeItem('token');
+                updateAuthUI();
+            }
+        });
+
+        // 서버 상태 확인
+        async function checkServerStatus() {
+            try {
+                const response = await fetch('/api/status');
+                if (!response.ok) {
+                    console.log('서버 상태 확인 실패');
+                } else {
+                    console.log('서버 연결 성공');
+                }
+            } catch (error) {
+                console.log('서버 연결 오류:', error.message);
+            }
+        }
+
+        // Splash 화면 제어 함수
+        function initializeSplashScreen() {
+            const splashScreen = document.getElementById('splashScreen');
+            const splashVideo = document.getElementById('splashVideo');
+            const introScreen = document.getElementById('introScreen');
+            
+            if (!splashScreen || !splashVideo || !introScreen) {
+                console.error('Splash 화면 요소를 찾을 수 없습니다.');
+                return;
+            }
+            
+            // 동영상 종료 시 인트로 화면으로 전환
+            splashVideo.addEventListener('ended', function() {
+                console.log('🎬 Splash 동영상 재생 완료 - 인트로 화면으로 전환');
+                showIntroScreen();
+            });
+            
+            // 동영상 로드 오류 시 즉시 인트로 화면으로 전환
+            splashVideo.addEventListener('error', function() {
+                console.log('❌ Splash 동영상 로드 실패 - 인트로 화면으로 전환');
+                showIntroScreen();
+            });
+            
+            // 3초 후 자동으로 인트로 화면으로 전환 (최대 대기 시간)
+            setTimeout(() => {
+                if (splashScreen.style.display !== 'none') {
+                    console.log('⏰ Splash 화면 최대 대기 시간 초과 - 인트로 화면으로 전환');
+                    showIntroScreen();
+                }
+            }, 3000);
+            
+            // 화면 터치/클릭 시 즉시 인트로 화면으로 전환
+            splashScreen.addEventListener('click', function() {
+                console.log('👆 Splash 화면 터치/클릭 - 인트로 화면으로 전환');
+                showIntroScreen();
+            });
+            
+            // 터치 이벤트도 추가 (모바일 최적화)
+            splashScreen.addEventListener('touchstart', function(e) {
+                e.preventDefault(); // 기본 터치 동작 방지
+                console.log('📱 Splash 화면 터치 시작 - 인트로 화면으로 전환');
+                showIntroScreen();
+            });
+            
+            // 키보드 이벤트 (스페이스바, 엔터키)
+            document.addEventListener('keydown', function(e) {
+                if ((e.code === 'Space' || e.code === 'Enter') && splashScreen.style.display !== 'none') {
+                    e.preventDefault();
+                    console.log('⌨️ 키보드 입력 - 인트로 화면으로 전환');
+                    showIntroScreen();
+                }
+            });
+            
+            function showIntroScreen() {
+                splashScreen.classList.add('fade-out');
+                setTimeout(() => {
+                    splashScreen.style.display = 'none';
+                    introScreen.style.display = 'block';
+                    console.log('✅ 인트로 화면 표시 완료');
+                }, 500); // 페이드아웃 애니메이션 시간과 맞춤
+            }
+        }
+
+        // 페이지 로드 시 서버 상태 확인 및 모바일 성능 최적화 초기화
+        window.addEventListener('load', function() {
+            checkServerStatus();
+            
+            // Splash 화면 초기화
+            initializeSplashScreen();
+            
+            // 모바일 성능 정보 확인
+            const performanceInfo = getMobilePerformanceInfo();
+            
+            // 모바일 디바이스에서 추가 최적화 적용
+            if (performanceInfo.isMobile) {
+                // 저사양 디바이스 감지 (메모리 4GB 미만 또는 CPU 코어 4개 미만)
+                const isLowSpec = (performanceInfo.deviceMemory !== 'unknown' && performanceInfo.deviceMemory < 4) ||
+                                 performanceInfo.hardwareConcurrency < 4;
+                
+                if (isLowSpec) {
+                    console.log('📱 저사양 모바일 디바이스 감지 - 추가 최적화 적용');
+                    // 저사양 디바이스용 추가 최적화 설정
+                    document.documentElement.style.setProperty('--animation-duration', '0.2s'); // 애니메이션 단축
+                    document.documentElement.style.setProperty('--transition-duration', '0.1s'); // 트랜지션 단축
+                }
+                
+                // 느린 네트워크 감지
+                if (performanceInfo.connection !== 'unknown' && 
+                    (performanceInfo.connection.effectiveType === 'slow-2g' || 
+                     performanceInfo.connection.effectiveType === '2g')) {
+                    console.log('📶 느린 네트워크 감지 - 데이터 절약 모드 활성화');
+                    // 느린 네트워크용 최적화 설정
+                    window.mobileOptimization = window.mobileOptimization || {};
+                    window.mobileOptimization.slowNetwork = true;
+                }
+            }
+        });
+
+        // 모바일 감지 함수 (강화된 성능 최적화)
+        function isMobileDevice() {
+            const userAgent = navigator.userAgent;
+            const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(userAgent);
+            const isSmallScreen = window.innerWidth <= 768;
+            const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            
+            return isMobileUA || (isSmallScreen && isTouchDevice);
+        }
+
+        // 모바일 성능 모니터링
+        function getMobilePerformanceInfo() {
+            const info = {
+                isMobile: isMobileDevice(),
+                deviceMemory: navigator.deviceMemory || 'unknown', // GB
+                hardwareConcurrency: navigator.hardwareConcurrency || 1, // CPU 코어 수
+                connection: navigator.connection ? {
+                    effectiveType: navigator.connection.effectiveType,
+                    downlink: navigator.connection.downlink + ' Mbps'
+                } : 'unknown',
+                userAgent: navigator.userAgent
+            };
+            
+            if (info.isMobile) {
+                console.log('📱 모바일 디바이스 감지:', info);
+            }
+            
+            return info;
+        }
+
+        // 인트로 START 버튼 클릭 시 인트로 숨기고 메인 컨테이너를 보이면서 바로 파일 선택창 열기 (로그인 팝업 방지)
+        document.getElementById('startBtn').addEventListener('click', function() {
+            document.getElementById('introScreen').style.display = 'none';
+            document.getElementById('mainContainer').style.display = 'block';
+            
+            // 모바일에서는 카메라 바로 실행, 데스크톱에서는 파일 선택창
+            setTimeout(() => {
+                const fileInput = document.getElementById('fileInput');
+                if (fileInput) {
+                    if (isMobileDevice()) {
+                        // 모바일: 카메라 바로 실행
+                        fileInput.setAttribute('capture', 'environment'); // 후면 카메라 우선
+                        fileInput.setAttribute('accept', 'image/*');
+                        console.log('📱 모바일 카메라 실행');
+                    } else {
+                        // 데스크톱: 일반 파일 선택
+                        fileInput.removeAttribute('capture');
+                        console.log('💻 데스크톱 파일 선택');
+                    }
+                    fileInput.click();
+                }
+            }, 100);
+        });
+
+        // 카메라 버튼 클릭 시 파일 선택창 열기
+        const cameraBtn = document.getElementById('cameraBtn');
+        if (cameraBtn && fileInput) {
+          cameraBtn.addEventListener('click', function() {
+            if (isMobileDevice()) {
+                // 모바일: 카메라 바로 실행
+                fileInput.setAttribute('capture', 'environment'); // 후면 카메라 우선
+                fileInput.setAttribute('accept', 'image/*');
+                console.log('📱 모바일 카메라 실행 (카메라 버튼)');
+            } else {
+                // 데스크톱: 일반 파일 선택
+                fileInput.removeAttribute('capture');
+                console.log('💻 데스크톱 파일 선택 (카메라 버튼)');
+            }
+            fileInput.click();
+          });
+        }
+        
+        // 🔧 인트로 화면 버튼은 HTML onclick 속성으로 처리됨
+    </script>
+    <script>
+    // 갤러리 상세 모달 열기 (결과 이미지만)
+    function showGalleryModal(resultUrl, title, date) {
+        document.getElementById('galleryModal').style.display = 'flex';
+        const modalResult = document.getElementById('modalResult');
+        if (modalResult) modalResult.src = resultUrl;
+        document.getElementById('modalTitle').textContent = title;
+        document.getElementById('modalDate').textContent = date;
+    }
+    function closeGalleryModal() {
+        document.getElementById('galleryModal').style.display = 'none';
+    }
+    function deleteAllGallery() {
+        if (!confirm('정말 모든 작품을 삭제하시겠습니까? (로컬 갤러리 모드)')) return;
+        
+        // 로컬 갤러리 전체 삭제 (myart.json 초기화)
+        try {
+            // 간단한 알림만 표시 (실제 삭제는 서버 재시작시 파일이 초기화됨)
+            showMessage('모든 작품 삭제가 요청되었습니다. (로컬 갤러리 모드)', 'info');
+            loadGallery();
+        } catch (error) {
+            showMessage('전체 삭제 중 오류가 발생했습니다.', 'error');
+        }
+    }
+    // 선택 삭제 함수 (로컬 갤러리 사용)
+    function deleteSelectedGallery() {
+        if (selectedGalleryIds.length === 0) return;
+        if (!confirm('선택한 작품을 모두 삭제하시겠습니까?')) return;
+        
+        // 로컬 갤러리는 간단한 삭제 처리
+        try {
+            // 현재는 로컬 갤러리에서 개별 삭제를 지원하지 않으므로
+            // 전체 갤러리를 다시 로드하고 메시지만 표시
+            showMessage(`${selectedGalleryIds.length}개 작품 삭제가 요청되었습니다. (로컬 갤러리 모드)`, 'info');
+            selectedGalleryIds = [];
+            document.getElementById('batchDeleteBtn').style.display = 'none';
+            isAllSelected = false;
+            document.getElementById('selectAllBtn').textContent = '전체선택';
+            loadGallery();
+        } catch (error) {
+            showMessage('선택 삭제 중 오류가 발생했습니다.', 'error');
+        }
+    }
+    </script>
+    <script>
+    // 로컬 갤러리용 간소화된 스크립트
+    
+    // 🚀 페이지 로드 시 초기화
+    let isAppInitialized = false;
+    function initializeApp() {
+        if (isAppInitialized) {
+            console.log('⚠️ 앱이 이미 초기화됨, 중복 실행 방지');
+                        return;
+                    }
+        
+        console.log('🚀 앱 초기화 시작');
+        isAppInitialized = true;
+        
+        // 🔧 인트로 버튼은 이제 onclick 속성으로 직접 처리됨
+        
+        // localStorage에서 토큰과 사용자 정보 복원
+        const savedToken = localStorage.getItem('token');
+        const savedUserId = localStorage.getItem('userId');
+        const savedUsername = localStorage.getItem('username');
+        const savedEmail = localStorage.getItem('email');
+        
+        console.log('💾 저장된 정보 확인:', {
+            token: savedToken?.substring(0, 50) + '...',
+            userId: savedUserId,
+            username: savedUsername,
+            email: savedEmail
+        });
+        
+        if (savedToken && savedUserId) {
+            // 토큰과 사용자 정보 복원
+            authToken = savedToken;
+            currentUser = {
+                id: savedUserId,
+                username: savedUsername,
+                email: savedEmail
+            };
+            
+            console.log('✅ 사용자 세션 복원 완료:', currentUser);
+            updateAuthUI();
+                    } else {
+            console.log('⚠️ 저장된 세션 없음, 로그인 필요');
+        }
+    }
+    
+    // 페이지 로드 시 초기화 실행
+    document.addEventListener('DOMContentLoaded', initializeApp);
+    
+    // 즉시 실행으로 안전장치 추가 (DOMContentLoaded가 이미 실행된 경우 대비)
+    if (document.readyState === 'loading') {
+        // DOM이 아직 로딩 중이면 DOMContentLoaded 이벤트를 기다림
+        console.log('⏳ DOM 로딩 중, DOMContentLoaded 이벤트 대기');
+    } else {
+        // DOM이 이미 로드 완료되었으면 즉시 초기화
+        console.log('✅ DOM 이미 로드됨, 즉시 초기화 실행');
+        initializeApp();
+    }
+    
+    // window에 함수 할당 (모든 함수 정의 후)
+    window.showGallery = showGallery;
+    window.saveToGallery = saveToGallery;
+    window.showGalleryModal = showGalleryModal;
+    window.closeGalleryModal = closeGalleryModal;
+    window.deleteAllGallery = deleteAllGallery;
+    window.deleteSelectedGallery = deleteSelectedGallery;
+    
+    </script>
+</body>
+</html> 

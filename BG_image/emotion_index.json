@@ -1,0 +1,365 @@
+{
+  "emotions": {
+    "happiness": {
+      "description": "행복, 기쁨, 즐거움을 표현하는 밝고 활기찬 명화들",
+      "artworks": [
+        {
+          "filename": "breezing_up_a_fair_wind_1943.13.1.jpg",
+          "title": "Breezing Up (A Fair Wind)",
+          "artist": "Winslow Homer",
+          "year": "1943",
+          "emotion_score": 0.85,
+          "description": "바다에서 항해하는 밝고 역동적인 장면"
+        },
+        {
+          "filename": "the_dance_class_2014.79.710.jpg",
+          "title": "The Dance Class",
+          "artist": "Edgar Degas",
+          "year": "2014",
+          "emotion_score": 0.80,
+          "description": "발레 수업의 우아하고 활기찬 모습"
+        },
+        {
+          "filename": "festival_in_the_harbor_of_honfleur_1983.1.10.jpg",
+          "title": "Festival in the Harbor of Honfleur",
+          "artist": "Eugène Boudin",
+          "year": "1983",
+          "emotion_score": 0.75,
+          "description": "항구에서 열리는 축제의 즐거운 분위기"
+        },
+        {
+          "filename": "dance_hall_bellevue_obverse_1989.60.1.a.jpg",
+          "title": "Dance Hall Bellevue",
+          "artist": "Henri de Toulouse-Lautrec",
+          "year": "1989",
+          "emotion_score": 0.70,
+          "description": "댄스홀의 활기찬 분위기"
+        },
+        {
+          "filename": "Irises_Vincent van Gogh.jpg",
+          "title": "Irises",
+          "artist": "Vincent van Gogh",
+          "year": "1889",
+          "emotion_score": 0.78,
+          "description": "생동감 넘치는 아이리스 꽃의 아름다움"
+        },
+        {
+          "filename": "Vase of Flowers_Jan van Huysum.jpg",
+          "title": "Vase of Flowers",
+          "artist": "Jan van Huysum",
+          "year": "18th century",
+          "emotion_score": 0.72,
+          "description": "화려하고 아름다운 꽃병의 꽃들"
+        },
+        {
+          "filename": "kyoto-joy-scaled.jpg",
+          "title": "Kyoto Joy",
+          "artist": "Contemporary Artist",
+          "year": "Modern",
+          "emotion_score": 0.88,
+          "description": "교토의 기쁨을 표현한 현대적 작품"
+        }
+      ]
+    },
+    "sadness": {
+      "description": "슬픔, 우울, 고뇌를 표현하는 깊이 있는 명화들",
+      "artworks": [
+        {
+          "filename": "the_small_crucifixion_1961.9.19.jpg",
+          "title": "The Small Crucifixion",
+          "artist": "Matthias Grünewald",
+          "year": "1961",
+          "emotion_score": 0.90,
+          "description": "십자가 처형의 고통스러운 장면"
+        },
+        {
+          "filename": "laocoon_1946.18.1.jpg",
+          "title": "Laocoön",
+          "artist": "Classical Sculpture",
+          "year": "1946",
+          "emotion_score": 0.85,
+          "description": "라오콘의 고통스러운 투쟁"
+        },
+        {
+          "filename": "parau_na_te_varua_ino_words_of_the_devil_1972.9.12.jpg",
+          "title": "Parau na te Varua ino (Words of the Devil)",
+          "artist": "Paul Gauguin",
+          "year": "1972",
+          "emotion_score": 0.80,
+          "description": "악마의 말이라는 제목의 어두운 작품"
+        },
+        {
+          "filename": "ships_in_distress_off_a_rocky_coast_1985.29.1.jpg",
+          "title": "Ships in Distress off a Rocky Coast",
+          "artist": "Claude-Joseph Vernet",
+          "year": "1985",
+          "emotion_score": 0.75,
+          "description": "바위 해안에서 조난당한 배들의 절망적 장면"
+        },
+        {
+          "filename": "Winter.jpg",
+          "title": "Winter",
+          "artist": "Contemporary Artist",
+          "year": "Modern",
+          "emotion_score": 0.70,
+          "description": "쓸쓸한 겨울 풍경"
+        },
+        {
+          "filename": "Cable Griffith–Ghost Tree.jpg",
+          "title": "Ghost Tree",
+          "artist": "Cable Griffith",
+          "year": "Contemporary",
+          "emotion_score": 0.78,
+          "description": "유령나무의 쓸쓸하고 신비로운 모습"
+        },
+        {
+          "filename": "Fares Micue – The Sacrifice Stone.jpg",
+          "title": "The Sacrifice Stone",
+          "artist": "Fares Micue",
+          "year": "Contemporary",
+          "emotion_score": 0.82,
+          "description": "희생의 돌이라는 제목의 어두운 작품"
+        }
+      ]
+    },
+    "anger": {
+      "description": "분노, 격정, 강렬함을 표현하는 역동적인 명화들",
+      "artworks": [
+        {
+          "filename": "the_battle_of_love_1972.9.2.jpg",
+          "title": "The Battle of Love",
+          "artist": "Classical Artist",
+          "year": "1972",
+          "emotion_score": 0.85,
+          "description": "사랑의 전쟁이라는 격렬한 주제"
+        },
+        {
+          "filename": "the_evening_of_the_deluge_1960.6.40.jpg",
+          "title": "The Evening of the Deluge",
+          "artist": "John Martin",
+          "year": "1960",
+          "emotion_score": 0.80,
+          "description": "대홍수의 파괴적이고 격렬한 장면"
+        },
+        {
+          "filename": "tiger_and_snake_2014.136.30.jpg",
+          "title": "Tiger and Snake",
+          "artist": "Franz Marc",
+          "year": "2014",
+          "emotion_score": 0.75,
+          "description": "호랑이와 뱀의 격렬한 대결"
+        },
+        {
+          "filename": "Ships a Sea, getting a Good Wetting_Joseph Mallord William Turner.jpg",
+          "title": "Ships at Sea, getting a Good Wetting",
+          "artist": "J.M.W. Turner",
+          "year": "19th century",
+          "emotion_score": 0.70,
+          "description": "폭풍우 속 바다의 격렬한 모습"
+        }
+      ]
+    },
+    "fear": {
+      "description": "두려움, 불안, 긴장감을 표현하는 어두운 명화들",
+      "artworks": [
+        {
+          "filename": "Ground Swell.jpg",
+          "title": "Ground Swell",
+          "artist": "Edward Hopper",
+          "year": "1939",
+          "emotion_score": 0.75,
+          "description": "바다의 거대한 파도에 대한 불안감"
+        },
+        {
+          "filename": "the_church_of_souain_1990.30.1.jpg",
+          "title": "The Church of Souain",
+          "artist": "War Artist",
+          "year": "1990",
+          "emotion_score": 0.70,
+          "description": "전쟁으로 파괴된 교회의 불안한 분위기"
+        },
+        {
+          "filename": "saint_sebastian_succored_by_the_holy_women_1960.6.4.jpg",
+          "title": "Saint Sebastian Succored by the Holy Women",
+          "artist": "Georges de La Tour",
+          "year": "1960",
+          "emotion_score": 0.68,
+          "description": "성 세바스티안의 고통스러운 장면"
+        }
+      ]
+    },
+    "surprise": {
+      "description": "놀라움, 경이로움을 표현하는 독특한 명화들",
+      "artworks": [
+        {
+          "filename": "The Entry of the Animals into Noah s Ark.jpg",
+          "title": "The Entry of the Animals into Noah's Ark",
+          "artist": "Jan Brueghel the Elder",
+          "year": "17th century",
+          "emotion_score": 0.80,
+          "description": "노아의 방주로 들어가는 동물들의 놀라운 장면"
+        },
+        {
+          "filename": "Manhattan-skyline.jpg",
+          "title": "Manhattan Skyline",
+          "artist": "Contemporary Artist",
+          "year": "Modern",
+          "emotion_score": 0.75,
+          "description": "맨해튼 스카이라인의 경이로운 모습"
+        },
+        {
+          "filename": "Sunrise at Sea_Peter Henry Emerson.jpg",
+          "title": "Sunrise at Sea",
+          "artist": "Peter Henry Emerson",
+          "year": "19th century",
+          "emotion_score": 0.72,
+          "description": "바다 위 일출의 놀라운 아름다움"
+        }
+      ]
+    },
+    "disgust": {
+      "description": "혐오, 거부감을 표현하는 어두운 주제의 명화들",
+      "artworks": [
+        {
+          "filename": "Bubble-Squeak-2.jpg",
+          "title": "Bubble Squeak 2",
+          "artist": "Contemporary Artist",
+          "year": "Modern",
+          "emotion_score": 0.65,
+          "description": "불편함을 주는 추상적 표현"
+        },
+        {
+          "filename": "Bubble-squeak-4-scaled.jpg",
+          "title": "Bubble Squeak 4",
+          "artist": "Contemporary Artist",
+          "year": "Modern",
+          "emotion_score": 0.60,
+          "description": "거부감을 일으키는 형태들"
+        }
+      ]
+    },
+    "neutral": {
+      "description": "중립적이고 평온한 감정의 풍경화와 정물화들",
+      "artworks": [
+        {
+          "filename": "hampton_court_green_1970.17.53.jpg",
+          "title": "Hampton Court Green",
+          "artist": "Classical Artist",
+          "year": "1970",
+          "emotion_score": 0.90,
+          "description": "햄프턴 코트의 평온한 녹색 풍경"
+        },
+        {
+          "filename": "landscape_1969.14.1.jpg",
+          "title": "Landscape",
+          "artist": "Classical Artist",
+          "year": "1969",
+          "emotion_score": 0.85,
+          "description": "차분하고 평온한 풍경"
+        },
+        {
+          "filename": "Landscape with a Calm_Nicolas Poussin.jpg",
+          "title": "Landscape with a Calm",
+          "artist": "Nicolas Poussin",
+          "year": "17th century",
+          "emotion_score": 0.88,
+          "description": "고요하고 평온한 풍경화"
+        },
+        {
+          "filename": "Landscape at Louveciennes (Autumn)_Camille Pissarro.jpg",
+          "title": "Landscape at Louveciennes (Autumn)",
+          "artist": "Camille Pissarro",
+          "year": "19th century",
+          "emotion_score": 0.82,
+          "description": "루브시엔의 가을 풍경"
+        },
+        {
+          "filename": "orchard_in_bloom_louveciennes_1970.17.51.jpg",
+          "title": "Orchard in Bloom, Louveciennes",
+          "artist": "Camille Pissarro",
+          "year": "1970",
+          "emotion_score": 0.80,
+          "description": "루브시엔의 꽃 피는 과수원"
+        },
+        {
+          "filename": "green_wheat_fields_auvers_2013.122.1.jpg",
+          "title": "Green Wheat Fields, Auvers",
+          "artist": "Vincent van Gogh",
+          "year": "2013",
+          "emotion_score": 0.78,
+          "description": "오베르의 녹색 밀밭"
+        },
+        {
+          "filename": "the_olive_orchard_1963.10.152.jpg",
+          "title": "The Olive Orchard",
+          "artist": "Vincent van Gogh",
+          "year": "1963",
+          "emotion_score": 0.76,
+          "description": "올리브 과수원의 평온한 모습"
+        },
+        {
+          "filename": "farmhouse_in_provence_1970.17.34.jpg",
+          "title": "Farmhouse in Provence",
+          "artist": "Paul Cézanne",
+          "year": "1970",
+          "emotion_score": 0.75,
+          "description": "프로방스의 농가"
+        },
+        {
+          "filename": "the_harvest_1985.64.91.jpg",
+          "title": "The Harvest",
+          "artist": "Classical Artist",
+          "year": "1985",
+          "emotion_score": 0.72,
+          "description": "수확의 평온한 장면"
+        },
+        {
+          "filename": "harvest--the_plain_of_la_crau_1992.51.10.jpg",
+          "title": "Harvest - The Plain of La Crau",
+          "artist": "Vincent van Gogh",
+          "year": "1992",
+          "emotion_score": 0.70,
+          "description": "라크라우 평야의 수확"
+        },
+        {
+          "filename": "A Hare in the Forest_Hans Hoffmann.jpg",
+          "title": "A Hare in the Forest",
+          "artist": "Hans Hoffmann",
+          "year": "16th century",
+          "emotion_score": 0.68,
+          "description": "숲 속의 토끼"
+        },
+        {
+          "filename": "Work Table.jpg",
+          "title": "Work Table",
+          "artist": "Contemporary Artist",
+          "year": "Modern",
+          "emotion_score": 0.65,
+          "description": "작업대의 정적인 모습"
+        },
+        {
+          "filename": "the_bathers_1951.5.1.jpg",
+          "title": "The Bathers",
+          "artist": "Paul Cézanne",
+          "year": "1951",
+          "emotion_score": 0.62,
+          "description": "목욕하는 사람들"
+        },
+        {
+          "filename": "interior_after_dinner_1983.1.26.jpg",
+          "title": "Interior After Dinner",
+          "artist": "Classical Artist",
+          "year": "1983",
+          "emotion_score": 0.60,
+          "description": "저녁 식사 후 실내 모습"
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "total_artworks": 56,
+    "last_updated": "2025-01-06",
+    "emotion_categories": 7,
+    "description": "MeArt 프로젝트용 명화 감정 분류 색인. 각 감정별로 적합한 명화들을 분류하여 사용자 감정에 맞는 배경을 제공합니다."
+  }
+}

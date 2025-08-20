@@ -1,0 +1,21 @@
+# AI 및 이미지 처리 핵심 라이브러리
+opencv-python-headless==4.10.0.84
+pillow==10.4.0
+numpy==1.24.3
+
+# ONNX 모델 추론
+onnxruntime==1.16.3
+
+# 배경 제거 라이브러리
+rembg==2.0.57
+
+# TensorFlow (Neural Style Transfer용)
+tensorflow==2.15.0
+tensorflow-hub==0.16.1
+
+# 이미지 처리 유틸리티
+scikit-image==0.22.0
+imageio==2.34.2
+
+# 기타 의존성
+requests==2.31.0

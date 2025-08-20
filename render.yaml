@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: meart-app
+    env: node
+    region: singapore
+    plan: starter
+    buildCommand: |
+      npm ci &&
+      pip3 install --upgrade pip &&
+      pip3 install -r requirements.txt
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PYTHON_PATH
+        value: python3
+      - key: PORT
+        fromService:
+          type: web
+          name: meart-app
+          property: port
+    healthCheckPath: /
+    scaling:
+      minInstances: 1
+      maxInstances: 2
+      targetMemoryPercent: 80
+      targetCPUPercent: 70
