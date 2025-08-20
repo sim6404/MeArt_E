@@ -23,13 +23,13 @@ WORKDIR /app
 # Python 의존성 먼저 설치 (캐싱 최적화)
 COPY requirements.txt .
 RUN pip3 install --no-cache-dir --upgrade pip
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir --root-user-action=ignore -r requirements.txt
 
 # package.json 및 package-lock.json 복사
 COPY package*.json ./
 
-# Node.js 의존성 설치
-RUN npm ci --only=production
+# Node.js 의존성 설치 (경고 제거)
+RUN npm ci --omit=dev --no-audit --no-fund
 
 # 앱 소스 복사
 COPY . .

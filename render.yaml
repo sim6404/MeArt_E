@@ -5,9 +5,9 @@ services:
     region: singapore
     plan: starter
     buildCommand: |
-      npm ci &&
+      npm ci --omit=dev --no-audit --no-fund &&
       pip3 install --upgrade pip &&
-      pip3 install --no-cache-dir -r requirements.txt
+      pip3 install --no-cache-dir --root-user-action=ignore -r requirements.txt
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
