@@ -295,7 +295,7 @@ setInterval(() => {
 }, 12 * 60 * 60 * 1000); // 12시간마다 실행
 
 // Python 스크립트 실행 함수 최적화
-const runPythonScript = (scriptName, args = [], timeout = 600000) => { // 10분으로 증가
+const runPythonScript = (scriptName, args = [], timeout = 300000) => { // 5분으로 단축
     return new Promise((resolve, reject) => {
         console.log(`Python 스크립트 실행: ${scriptName}`);
         console.log(`인자:`, args);
@@ -937,16 +937,16 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
         });
     }
     
-    // 요청 타임아웃 설정 (5분)
+    // 요청 타임아웃 설정 (3분)
     const timeout = setTimeout(() => {
-        console.error('⏰ 배경 제거 API 타임아웃 (5분)');
+        console.error('⏰ 배경 제거 API 타임아웃 (3분)');
         if (!res.headersSent) {
             res.status(408).json({
                 error: '요청 처리 시간이 초과되었습니다. 다시 시도해주세요.',
                 timeout: true
             });
         }
-    }, 300000); // 5분
+    }, 180000); // 3분
     
     try {
         if (!req.file) {

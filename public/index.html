@@ -2608,17 +2608,18 @@
                     if (response.status === 502) {
                         console.error('🚨 502 Bad Gateway 오류 - 서버가 응답하지 않음');
                         
-                        // 재시도 로직 (최대 3회)
+                        // 재시도 로직 (최대 5회, 점진적 대기)
                         if (!window.retryCount) window.retryCount = 0;
-                        if (window.retryCount < 3) {
+                        if (window.retryCount < 5) {
                             window.retryCount++;
-                            console.log(`🔄 502 오류 재시도 ${window.retryCount}/3`);
-                            showMessage(`서버가 일시적으로 응답하지 않습니다. 재시도 중... (${window.retryCount}/3)`, 'warning');
+                            const waitTime = window.retryCount * 3; // 3초, 6초, 9초, 12초, 15초
+                            console.log(`🔄 502 오류 재시도 ${window.retryCount}/5 (${waitTime}초 대기)`);
+                            showMessage(`서버가 일시적으로 응답하지 않습니다. ${waitTime}초 후 재시도... (${window.retryCount}/5)`, 'warning');
                             
-                            // 3초 후 재시도
+                            // 점진적으로 증가하는 대기 시간
                             setTimeout(() => {
                                 removeBackgroundInternal();
-                            }, 3000);
+                            }, waitTime * 1000);
                             return false;
                         } else {
                             window.retryCount = 0; // 재시도 카운트 리셋
@@ -2710,6 +2711,30 @@
                 return true;
             } catch (error) {
                 console.error('❌ removeBackgroundInternal 오류:', error);
+                
+                // 네트워크 오류 특별 처리
+                if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                    console.error('🌐 네트워크 연결 오류 - 서버에 연결할 수 없습니다');
+                    
+                    // 네트워크 오류 재시도 로직
+                    if (!window.networkRetryCount) window.networkRetryCount = 0;
+                    if (window.networkRetryCount < 3) {
+                        window.networkRetryCount++;
+                        const waitTime = window.networkRetryCount * 5; // 5초, 10초, 15초
+                        console.log(`🔄 네트워크 오류 재시도 ${window.networkRetryCount}/3 (${waitTime}초 대기)`);
+                        showMessage(`네트워크 연결 오류. ${waitTime}초 후 재시도... (${window.networkRetryCount}/3)`, 'warning');
+                        
+                        setTimeout(() => {
+                            removeBackgroundInternal();
+                        }, waitTime * 1000);
+                        return false;
+                    } else {
+                        window.networkRetryCount = 0; // 재시도 카운트 리셋
+                        showMessage('네트워크 연결에 문제가 있습니다. 인터넷 연결을 확인하고 다시 시도해주세요.', 'error');
+                        return false;
+                    }
+                }
+                
                 showMessage(error.message, 'error');
                 return false;
             }
