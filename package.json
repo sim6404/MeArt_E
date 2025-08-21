@@ -1,6 +1,6 @@
 {
   "name": "meart",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "AI-based emotion art generator with brush effects",
   "main": "server.js",
   "engines": {
@@ -26,15 +26,16 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/meart.git"
+    "url": "https://github.com/sim6404/MeArt_E
+.git"
   },
   "dependencies": {
     "axios": "^1.6.0",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
     "express": "^4.18.2",
-    "firebase": "^10.7.0",
-    "firebase-admin": "^12.0.0",
+    "firebase": "^10.14.1",
+    "firebase-admin": "^12.7.0",
     "form-data": "^4.0.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
