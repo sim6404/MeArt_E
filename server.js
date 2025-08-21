@@ -29,8 +29,8 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-default-jwt-secret-change-in-production';
 const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
 
-// Python 경로 설정 (Render 환경 대응)
-const PYTHON_PATH = process.env.PYTHON_PATH || 'python3';
+// Python 경로 설정 (Windows/Linux 환경 대응)
+const PYTHON_PATH = process.env.PYTHON_PATH || (process.platform === 'win32' ? 'python' : 'python3');
 // 유틸 함수들 직접 구현
 function toAbsPath(relativePath) {
     return path.isAbsolute(relativePath) ? relativePath : path.join(__dirname, relativePath);
