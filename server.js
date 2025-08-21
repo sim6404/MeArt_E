@@ -1179,6 +1179,13 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
         // 성공 시 타임아웃 클리어
         clearTimeout(timeout);
         
+        // 🔧 응답 헤더 설정 강화
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        
         res.json({
             processedImageUrl: '/uploads/' + path.basename(previewPath), // 배경 합성된 미리보기 표시
             imageBase64, // 🎯 Base64 이미지 데이터 추가
