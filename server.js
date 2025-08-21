@@ -60,13 +60,24 @@ function safeUnlink(filePath) {
 let admin, db;
 try {
     admin = require('./firebase-admin-config');
-    db = admin.firestore();
-    console.log('Firebase Admin 초기화 성공');
+    
+    // Firebase Admin이 null인 경우 처리
+    if (admin === null) {
+        console.log('⚠️ Firebase Admin이 비활성화됨 - 기본 기능만 사용');
+        admin = null;
+        db = null;
+    } else {
+        db = admin.firestore();
+        console.log('✅ Firebase Admin 초기화 성공');
+    }
 } catch (error) {
-    console.log('Firebase Admin 초기화 실패, 기본 기능만 사용:', error.message);
+    console.log('❌ Firebase Admin 초기화 실패, 기본 기능만 사용:', error.message);
     admin = null;
     db = null;
 }
+
+// Firebase 상태 로그
+console.log(`🔥 Firebase 상태: ${admin ? '활성화' : '비활성화'}`);
 
 const app = express();
 const port = PORT;
