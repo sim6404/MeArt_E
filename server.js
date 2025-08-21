@@ -877,7 +877,9 @@ setInterval(cleanupOldFiles, 60 * 60 * 1000); // 1시간마다
 
 // 예시: 배경 제거 API 복구
 app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
-    console.log('배경 제거 API 호출됨');
+    console.log('🎯 배경 제거 API 호출됨');
+    console.log('📂 요청 파일:', req.file);
+    console.log('📋 요청 헤더:', req.headers);
     try {
         if (!req.file) {
             throw new Error('이미지가 업로드되지 않았습니다.');
@@ -1101,7 +1103,12 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
             step: 1 // 1단계 완료 표시
         });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('❌ 배경 제거 API 오류:', error);
+        console.error('📍 오류 스택:', error.stack);
+        res.status(500).json({ 
+            error: error.message || '배경 제거 중 오류가 발생했습니다.',
+            debug: NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 
