@@ -880,10 +880,32 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
     console.log('🎯 배경 제거 API 호출됨');
     console.log('📂 요청 파일:', req.file);
     console.log('📋 요청 헤더:', req.headers);
+    console.log('🌍 환경 정보:', {
+        platform: process.platform,
+        pythonPath: PYTHON_PATH,
+        nodeEnv: NODE_ENV,
+        workingDir: __dirname
+    });
+    
     try {
         if (!req.file) {
             throw new Error('이미지가 업로드되지 않았습니다.');
         }
+        
+        // Render 환경 특화 체크
+        if (process.env.RENDER) {
+            console.log('🚀 Render 환경 감지됨');
+            // uploads 디렉토리 확인
+            if (!fs.existsSync(path.join(__dirname, 'uploads'))) {
+                console.log('📁 uploads 디렉토리 생성');
+                fs.mkdirSync(path.join(__dirname, 'uploads'), { recursive: true });
+            }
+            // models 디렉토리 확인  
+            if (!fs.existsSync(path.join(__dirname, 'models'))) {
+                throw new Error('models 디렉토리가 존재하지 않습니다. Render 빌드 설정을 확인하세요.');
+            }
+        }
+        
         await checkPythonEnvironment();
         
         // 🎯 업로드된 이미지로 감정 분석 수행
@@ -2235,15 +2257,61 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// 건강 확인 엔드포인트 (Render 배포용)
-app.get('/health', (req, res) => {
-    res.status(200).json({
-        status: 'OK',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        env: NODE_ENV
-    });
+// Render 전용 진단 엔드포인트
+app.get('/debug/render', async (req, res) => {
+    try {
+        // Python 환경 테스트
+        let pythonStatus = 'unknown';
+        let pythonError = null;
+        try {
+            await checkPythonEnvironment();
+            pythonStatus = 'working';
+        } catch (error) {
+            pythonStatus = 'failed';
+            pythonError = error.message;
+        }
+        
+        // 파일 시스템 체크
+        const uploadsExists = fs.existsSync(path.join(__dirname, 'uploads'));
+        const modelsExists = fs.existsSync(path.join(__dirname, 'models'));
+        
+        const diagnosticInfo = {
+            status: 'OK',
+            timestamp: new Date().toISOString(),
+            environment: {
+                platform: process.platform,
+                arch: process.arch,
+                nodeVersion: process.version,
+                pythonPath: PYTHON_PATH,
+                nodeEnv: NODE_ENV,
+                renderUrl: process.env.RENDER_EXTERNAL_URL || 'not set'
+            },
+            system: {
+                uptime: Math.floor(process.uptime()),
+                memory: process.memoryUsage(),
+                workingDirectory: __dirname
+            },
+            services: {
+                firebase: admin ? 'connected' : 'disabled',
+                python: {
+                    status: pythonStatus,
+                    error: pythonError
+                }
+            },
+            filesystem: {
+                uploadsDir: uploadsExists,
+                modelsDir: modelsExists
+            }
+        };
+        
+        res.status(200).json(diagnosticInfo);
+    } catch (error) {
+        res.status(500).json({
+            status: 'ERROR',
+            error: error.message,
+            stack: error.stack
+        });
+    }
 });
 
 // 에러 핸들링 미들웨어
