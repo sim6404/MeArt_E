@@ -247,13 +247,14 @@ app.get('/api/status', (req, res) => {
     res.json({ 
         status: 'running',
         message: 'MeArt API is running',
-        version: '1.0.11',
+        version: process.env.npm_package_version || '1.0.18',
         timestamp: new Date().toISOString(),
         uptime: Math.floor(process.uptime()),
         memory: process.memoryUsage(),
         pythonPath: PYTHON_PATH,
         nodeEnv: NODE_ENV,
-        firebaseEnabled: admin !== null
+        firebaseEnabled: admin !== null,
+        serverReady: global.serverReady || false
     });
 });
 
@@ -2427,6 +2428,10 @@ const server = app.listen(port, '0.0.0.0', async () => {
     
     // 서버 시작 완료 로그
     console.log('🎉 MeArt 서버 시작 완료!');
+    console.log('🚀 서버 버전:', process.env.npm_package_version || '1.0.18');
+    console.log('🌍 환경:', process.env.NODE_ENV || 'development');
+    console.log('🔗 서버 URL:', `http://localhost:${port}`);
+    console.log('📊 메모리 사용량:', process.memoryUsage());
     
     // 서버 상태 확인을 위한 내부 헬스체크
     setTimeout(() => {
