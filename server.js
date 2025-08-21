@@ -294,7 +294,7 @@ setInterval(() => {
 }, 12 * 60 * 60 * 1000); // 12시간마다 실행
 
 // Python 스크립트 실행 함수 최적화
-const runPythonScript = (scriptName, args = [], timeout = 120000) => {
+const runPythonScript = (scriptName, args = [], timeout = 600000) => { // 10분으로 증가
     return new Promise((resolve, reject) => {
         console.log(`Python 스크립트 실행: ${scriptName}`);
         console.log(`인자:`, args);
@@ -355,6 +355,25 @@ function checkPythonEnvironment() {
             } else {
                 reject(new Error('Python이 설치되어 있지 않거나 실행할 수 없습니다.'));
             }
+        });
+    });
+}
+
+// U2Net 모델 다운로드 상태 확인 함수
+async function checkU2NetModel() {
+    return new Promise((resolve, reject) => {
+        const modelPath = '/root/.u2net/u2net.onnx';
+        const command = `${pythonPath} -c "import os; print('U2Net 모델 존재:', os.path.exists('${modelPath}'))"`;
+        
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                console.log('U2Net 모델 확인 중 오류:', error.message);
+                resolve(false);
+                return;
+            }
+            const exists = stdout.includes('True');
+            console.log('U2Net 모델 상태:', exists ? '다운로드됨' : '다운로드 필요');
+            resolve(exists);
         });
     });
 }
@@ -936,6 +955,12 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
         }
         
         await checkPythonEnvironment();
+        
+        // U2Net 모델 상태 확인
+        const u2netReady = await checkU2NetModel();
+        if (!u2netReady) {
+            console.log('⚠️ U2Net 모델이 다운로드되지 않았습니다. 다운로드를 시작합니다...');
+        }
         
         // 🎯 업로드된 이미지로 감정 분석 수행
         let emotion = null;
