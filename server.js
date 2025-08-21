@@ -247,8 +247,13 @@ app.get('/api/status', (req, res) => {
     res.json({ 
         status: 'running',
         message: 'MeArt API is running',
-        version: '1.0.0',
-        timestamp: new Date().toISOString()
+        version: '1.0.11',
+        timestamp: new Date().toISOString(),
+        uptime: Math.floor(process.uptime()),
+        memory: process.memoryUsage(),
+        pythonPath: PYTHON_PATH,
+        nodeEnv: NODE_ENV,
+        firebaseEnabled: admin !== null
     });
 });
 
@@ -897,6 +902,8 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
         nodeEnv: NODE_ENV,
         workingDir: __dirname
     });
+    console.log('⏱️ 서버 업타임:', Math.floor(process.uptime()), '초');
+    console.log('📊 메모리 사용량:', process.memoryUsage());
     
     // 요청 타임아웃 설정 (5분)
     const timeout = setTimeout(() => {
@@ -2380,6 +2387,12 @@ const server = app.listen(port, async () => {
         console.log('🔍 서버 내부 상태 확인 중...');
         console.log('📊 메모리 사용량:', process.memoryUsage());
         console.log('⏱️ 서버 업타임:', Math.floor(process.uptime()), '초');
+        
+        // 서버가 완전히 준비되었는지 확인
+        console.log('✅ 서버가 모든 요청을 처리할 준비가 완료되었습니다.');
+        console.log('🌐 서버 URL:', `http://localhost:${port}`);
+        console.log('🔗 헬스체크 URL:', `http://localhost:${port}/health`);
+        console.log('📊 API 상태 URL:', `http://localhost:${port}/api/status`);
     }, 5000);
 });
 
