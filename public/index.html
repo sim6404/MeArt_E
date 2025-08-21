@@ -2575,7 +2575,14 @@
                     headers['Authorization'] = `Bearer ${authToken}`;
                 }
                 
-                const response = await fetch('/api/remove-bg', {
+                // 🔧 Render 배포 환경에 맞게 절대 URL 사용
+                const apiUrl = window.location.hostname === 'localhost' 
+                    ? '/api/remove-bg' 
+                    : 'https://meart-e.onrender.com/api/remove-bg';
+                
+                console.log('🌐 API 호출 URL:', apiUrl);
+                
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers,
                     body: formData
@@ -2604,8 +2611,18 @@
                     if (processedImage) processedImage.style.display = 'block';
                     return true;
                 } else {
-                    const errorJson = await response.json();
-                    showMessage(errorJson.error || '배경 제거 중 오류가 발생했습니다.', 'error');
+                    // 🔧 상세한 에러 로깅 추가
+                    console.error('❌ 배경 제거 API 오류:', response.status, response.statusText);
+                    const errorText = await response.text();
+                    console.error('❌ 에러 응답 내용:', errorText);
+                    
+                    try {
+                        const errorJson = JSON.parse(errorText);
+                        showMessage(errorJson.error || '배경 제거 중 오류가 발생했습니다.', 'error');
+                    } catch (parseError) {
+                        console.error('❌ JSON 파싱 실패:', parseError);
+                        showMessage(`배경 제거 중 오류가 발생했습니다. (${response.status})`, 'error');
+                    }
                     return false;
                 }
             } catch (error) {
@@ -2619,7 +2636,14 @@
                 const formData = new FormData();
                 formData.append('image', currentFile);
                 
-                const response = await fetch('/analyze-emotion', {
+                // 🔧 Render 배포 환경에 맞게 절대 URL 사용
+                const emotionApiUrl = window.location.hostname === 'localhost' 
+                    ? '/analyze-emotion' 
+                    : 'https://meart-e.onrender.com/analyze-emotion';
+                
+                console.log('🌐 감정 분석 API 호출 URL:', emotionApiUrl);
+                
+                const response = await fetch(emotionApiUrl, {
                     method: 'POST',
                     body: formData
                 });
@@ -3036,7 +3060,14 @@
                 
                 console.log('🎨 브러시 효과 API 요청 데이터:', requestData);
                 
-                const response = await fetch('/api/apply-brush-effect', {
+                // 🔧 Render 배포 환경에 맞게 절대 URL 사용
+                const brushApiUrl = window.location.hostname === 'localhost' 
+                    ? '/api/apply-brush-effect' 
+                    : 'https://meart-e.onrender.com/api/apply-brush-effect';
+                
+                console.log('🌐 브러시 효과 API 호출 URL:', brushApiUrl);
+                
+                const response = await fetch(brushApiUrl, {
                         method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3515,8 +3546,15 @@
             const email = document.getElementById('authEmail').value;
             const password = document.getElementById('authPassword').value;
 
+            // 🔧 Render 배포 환경에 맞게 절대 URL 사용
+            const signupApiUrl = window.location.hostname === 'localhost' 
+                ? '/api/auth/signup' 
+                : 'https://meart-e.onrender.com/api/auth/signup';
+            
+            console.log('🌐 회원가입 API 호출 URL:', signupApiUrl);
+            
             try {
-                const response = await fetch('/api/auth/signup', {
+                const response = await fetch(signupApiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3551,8 +3589,15 @@
             const email = document.getElementById('authEmail').value;
             const password = document.getElementById('authPassword').value;
 
+            // 🔧 Render 배포 환경에 맞게 절대 URL 사용
+            const loginApiUrl = window.location.hostname === 'localhost' 
+                ? '/api/auth/login' 
+                : 'https://meart-e.onrender.com/api/auth/login';
+            
+            console.log('🌐 로그인 API 호출 URL:', loginApiUrl);
+            
             try {
-                const response = await fetch('/api/auth/login', {
+                const response = await fetch(loginApiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -3663,8 +3708,15 @@
                 
                 console.log('🏠 로컬 갤러리 저장 데이터:', { imageUrl: urlPath });
                 
+                // 🔧 Render 배포 환경에 맞게 절대 URL 사용
+                const galleryApiUrl = window.location.hostname === 'localhost' 
+                    ? '/api/my-art' 
+                    : 'https://meart-e.onrender.com/api/my-art';
+                
+                console.log('🌐 갤러리 저장 API 호출 URL:', galleryApiUrl);
+                
                 // 로컬 갤러리 사용 (Firebase 인증 문제 우회)
-                const response = await fetch('/api/my-art', {
+                const response = await fetch(galleryApiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -3749,9 +3801,16 @@
             console.log('🔍 Firebase auth 상태:', auth.currentUser ? 'logged in' : 'not logged in');
             console.log('🔍 현재 사용자 정보:', currentUser);
             
+            // 🔧 Render 배포 환경에 맞게 절대 URL 사용
+            const galleryLoadApiUrl = window.location.hostname === 'localhost' 
+                ? '/api/my-art' 
+                : 'https://meart-e.onrender.com/api/my-art';
+            
+            console.log('🌐 갤러리 로드 API 호출 URL:', galleryLoadApiUrl);
+            
             // 로컬 갤러리 사용 (Firebase 인증 문제 우회)
             try {
-                const response = await fetch('/api/my-art');
+                const response = await fetch(galleryLoadApiUrl);
                 const data = await response.json();
                 
                 if (data.success) {
