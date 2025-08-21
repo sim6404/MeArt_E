@@ -2324,14 +2324,25 @@ app.use((err, req, res, next) => {
 
 // 서버 시작
 const server = app.listen(port, async () => {
-    console.log(`서버가 http://localhost:${port} 에서 실행 중입니다.`);
-    console.log('업로드 디렉토리:', uploadDir);
+    console.log(`🚀 서버가 http://localhost:${port} 에서 실행 중입니다.`);
+    console.log('📁 업로드 디렉토리:', uploadDir);
+    console.log('🌍 환경 정보:', {
+        NODE_ENV: NODE_ENV,
+        PORT: port,
+        PYTHON_PATH: PYTHON_PATH,
+        platform: process.platform,
+        arch: process.arch
+    });
+    
     try {
         await checkPythonEnvironment();
-        console.log('Python 환경 확인 완료');
+        console.log('✅ Python 환경 확인 완료');
     } catch (error) {
-        console.error('Python 환경 확인 실패:', error);
+        console.error('❌ Python 환경 확인 실패:', error);
     }
+    
+    // 서버 시작 완료 로그
+    console.log('🎉 MeArt 서버 시작 완료!');
 });
 
 // 포트 충돌 등 서버 에러 핸들링
