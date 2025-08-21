@@ -898,6 +898,17 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
         workingDir: __dirname
     });
     
+    // 요청 타임아웃 설정 (5분)
+    const timeout = setTimeout(() => {
+        console.error('⏰ 배경 제거 API 타임아웃 (5분)');
+        if (!res.headersSent) {
+            res.status(408).json({
+                error: '요청 처리 시간이 초과되었습니다. 다시 시도해주세요.',
+                timeout: true
+            });
+        }
+    }, 300000); // 5분
+    
     try {
         if (!req.file) {
             throw new Error('이미지가 업로드되지 않았습니다.');
@@ -1123,6 +1134,9 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
         // 명화 추천 리스트 생성 (썸네일 포함)
         const artworkRecommendations = getArtworkRecommendations(emotion, backgroundPath, 6);
         
+        // 성공 시 타임아웃 클리어
+        clearTimeout(timeout);
+        
         res.json({
             processedImageUrl: '/uploads/' + path.basename(previewPath), // 배경 합성된 미리보기 표시
             imageBase64, // 🎯 Base64 이미지 데이터 추가
@@ -1138,10 +1152,16 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
     } catch (error) {
         console.error('❌ 배경 제거 API 오류:', error);
         console.error('📍 오류 스택:', error.stack);
-        res.status(500).json({ 
-            error: error.message || '배경 제거 중 오류가 발생했습니다.',
-            debug: NODE_ENV === 'development' ? error.stack : undefined
-        });
+        
+        // 타임아웃 클리어
+        clearTimeout(timeout);
+        
+        if (!res.headersSent) {
+            res.status(500).json({ 
+                error: error.message || '배경 제거 중 오류가 발생했습니다.',
+                debug: NODE_ENV === 'development' ? error.stack : undefined
+            });
+        }
     }
 });
 
@@ -2354,6 +2374,26 @@ const server = app.listen(port, async () => {
     
     // 서버 시작 완료 로그
     console.log('🎉 MeArt 서버 시작 완료!');
+    
+    // 서버 상태 확인을 위한 내부 헬스체크
+    setTimeout(() => {
+        console.log('🔍 서버 내부 상태 확인 중...');
+        console.log('📊 메모리 사용량:', process.memoryUsage());
+        console.log('⏱️ 서버 업타임:', Math.floor(process.uptime()), '초');
+    }, 5000);
+});
+
+// 서버 오류 처리
+server.on('error', (error) => {
+    console.error('❌ 서버 오류:', error);
+    if (error.code === 'EADDRINUSE') {
+        console.error('📍 포트가 이미 사용 중입니다:', port);
+    }
+});
+
+// 서버 연결 처리
+server.on('connection', (socket) => {
+    console.log('🔗 새로운 클라이언트 연결:', socket.remoteAddress);
 });
 
 // 포트 충돌 등 서버 에러 핸들링
