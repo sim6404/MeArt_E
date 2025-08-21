@@ -924,6 +924,16 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
     console.log('⏱️ 서버 업타임:', Math.floor(process.uptime()), '초');
     console.log('📊 메모리 사용량:', process.memoryUsage());
     
+    // 서버 준비 상태 확인
+    const serverUptime = process.uptime();
+    if (serverUptime < 10) { // 서버 시작 후 10초 미만
+        console.log('⚠️ 서버가 아직 완전히 준비되지 않았습니다. 업타임:', serverUptime, '초');
+        return res.status(503).json({
+            error: '서버가 아직 준비 중입니다. 잠시 후 다시 시도해주세요.',
+            uptime: serverUptime
+        });
+    }
+    
     // 요청 타임아웃 설정 (5분)
     const timeout = setTimeout(() => {
         console.error('⏰ 배경 제거 API 타임아웃 (5분)');
@@ -2386,7 +2396,7 @@ app.use((err, req, res, next) => {
 });
 
 // 서버 시작
-const server = app.listen(port, async () => {
+const server = app.listen(port, '0.0.0.0', async () => {
     console.log(`🚀 서버가 http://localhost:${port} 에서 실행 중입니다.`);
     console.log('📁 업로드 디렉토리:', uploadDir);
     console.log('🌍 환경 정보:', {
@@ -2418,6 +2428,13 @@ const server = app.listen(port, async () => {
         console.log('🌐 서버 URL:', `http://localhost:${port}`);
         console.log('🔗 헬스체크 URL:', `http://localhost:${port}/health`);
         console.log('📊 API 상태 URL:', `http://localhost:${port}/api/status`);
+        
+        // U2Net 모델 상태 확인
+        checkU2NetModel().then(exists => {
+            console.log('🐍 U2Net 모델 상태:', exists ? '✅ 다운로드됨' : '❌ 다운로드 필요');
+        }).catch(error => {
+            console.log('🐍 U2Net 모델 확인 실패:', error.message);
+        });
     }, 5000);
 });
 
