@@ -2627,6 +2627,40 @@
                         }
                     }
                     
+                    // 503 Service Unavailable 특별 처리
+                    if (response.status === 503) {
+                        console.error('⚠️ 503 Service Unavailable - 서버가 아직 준비 중');
+                        
+                        // JSON 응답 파싱 시도
+                        try {
+                            const errorJson = JSON.parse(errorText);
+                            console.log('📊 서버 상태:', errorJson);
+                            
+                            // 재시도 로직 (최대 5회, 더 긴 간격)
+                            if (!window.retryCount503) window.retryCount503 = 0;
+                            if (window.retryCount503 < 5) {
+                                window.retryCount503++;
+                                const waitTime = window.retryCount503 * 5; // 5초, 10초, 15초, 20초, 25초
+                                console.log(`🔄 503 오류 재시도 ${window.retryCount503}/5 (${waitTime}초 대기)`);
+                                showMessage(`서버가 준비 중입니다. ${waitTime}초 후 재시도... (${window.retryCount503}/5)`, 'info');
+                                
+                                // 점진적으로 증가하는 대기 시간
+                                setTimeout(() => {
+                                    removeBackgroundInternal();
+                                }, waitTime * 1000);
+                                return false;
+                            } else {
+                                window.retryCount503 = 0; // 재시도 카운트 리셋
+                                showMessage('서버 준비가 지연되고 있습니다. 잠시 후 다시 시도해주세요.', 'error');
+                                return false;
+                            }
+                        } catch (parseError) {
+                            console.error('❌ 503 응답 JSON 파싱 실패:', parseError);
+                            showMessage('서버가 준비 중입니다. 잠시 후 다시 시도해주세요.', 'info');
+                            return false;
+                        }
+                    }
+                    
                     // JSON 파싱 시도
                     try {
                         const errorJson = JSON.parse(errorText);

@@ -927,12 +927,13 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res) => {
     
     // 서버 준비 상태 확인
     const serverUptime = process.uptime();
-    if (serverUptime < 10 || !global.serverReady) { // 서버 시작 후 10초 미만 또는 준비 상태 플래그가 false
+    if (serverUptime < 5 || !global.serverReady) { // 서버 시작 후 5초 미만 또는 준비 상태 플래그가 false
         console.log('⚠️ 서버가 아직 완전히 준비되지 않았습니다. 업타임:', serverUptime, '초, 준비상태:', global.serverReady);
         return res.status(503).json({
             error: '서버가 아직 준비 중입니다. 잠시 후 다시 시도해주세요.',
             uptime: serverUptime,
-            ready: global.serverReady || false
+            ready: global.serverReady || false,
+            estimatedReadyTime: Math.max(0, 5 - serverUptime)
         });
     }
     
@@ -2455,7 +2456,7 @@ const server = app.listen(port, '0.0.0.0', async () => {
         // 서버 준비 상태 플래그 설정
         global.serverReady = true;
         console.log('🚀 서버 준비 상태 플래그 설정 완료');
-    }, 5000);
+    }, 3000); // 5초에서 3초로 단축
 });
 
 // 서버 오류 처리
