@@ -2607,8 +2607,24 @@
                     // 502 Bad Gateway 특별 처리
                     if (response.status === 502) {
                         console.error('🚨 502 Bad Gateway 오류 - 서버가 응답하지 않음');
-                        showMessage('서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해주세요.', 'error');
-                        return false;
+                        
+                        // 재시도 로직 (최대 3회)
+                        if (!window.retryCount) window.retryCount = 0;
+                        if (window.retryCount < 3) {
+                            window.retryCount++;
+                            console.log(`🔄 502 오류 재시도 ${window.retryCount}/3`);
+                            showMessage(`서버가 일시적으로 응답하지 않습니다. 재시도 중... (${window.retryCount}/3)`, 'warning');
+                            
+                            // 3초 후 재시도
+                            setTimeout(() => {
+                                removeBackgroundInternal();
+                            }, 3000);
+                            return false;
+                        } else {
+                            window.retryCount = 0; // 재시도 카운트 리셋
+                            showMessage('서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해주세요.', 'error');
+                            return false;
+                        }
                     }
                     
                     // JSON 파싱 시도
