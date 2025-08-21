@@ -2604,13 +2604,25 @@
                     console.error('❌ remove-bg 응답 오류:', errorText);
                     console.error('❌ 응답 상태:', response.status, response.statusText);
                     
+                    // 502 Bad Gateway 특별 처리
+                    if (response.status === 502) {
+                        console.error('🚨 502 Bad Gateway 오류 - 서버가 응답하지 않음');
+                        showMessage('서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해주세요.', 'error');
+                        return false;
+                    }
+                    
                     // JSON 파싱 시도
                     try {
                         const errorJson = JSON.parse(errorText);
                         showMessage(errorJson.error || '배경 제거 API 요청 실패', 'error');
                     } catch (parseError) {
                         console.error('❌ JSON 파싱 실패:', parseError);
-                        showMessage(`배경 제거 API 요청 실패 (${response.status}): ${errorText.substring(0, 100)}`, 'error');
+                        // HTML 응답인 경우 (502 오류 페이지)
+                        if (errorText.includes('<!DOCTYPE html>')) {
+                            showMessage('서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해주세요.', 'error');
+                        } else {
+                            showMessage(`배경 제거 API 요청 실패 (${response.status}): ${errorText.substring(0, 100)}`, 'error');
+                        }
                     }
                     return false;
                 }
