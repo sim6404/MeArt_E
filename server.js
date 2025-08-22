@@ -402,16 +402,25 @@ async function checkU2NetModel() {
         
         const command = `${pythonPath} -c "
 import os
+import sys
 model_path = '${modelPath}'
+model_dir = '${modelDir}'
+
+# 모델 디렉토리 생성
+os.makedirs(model_dir, exist_ok=True)
+
 if os.path.exists(model_path):
     size = os.path.getsize(model_path)
     print(f'U2Net 모델 존재: True, 크기: {size:,} bytes')
     if size > 100 * 1024 * 1024:  # 100MB 이상
         print('모델 파일 크기 검증: True')
+        print('모델 상태: READY')
     else:
         print('모델 파일 크기 검증: False')
+        print('모델 상태: NEED_DOWNLOAD')
 else:
     print('U2Net 모델 존재: False')
+    print('모델 상태: NEED_DOWNLOAD'
 "`;
         
         exec(command, (error, stdout, stderr) => {
@@ -423,11 +432,85 @@ else:
             
             const exists = stdout.includes('U2Net 모델 존재: True');
             const validSize = stdout.includes('모델 파일 크기 검증: True');
+            const needsDownload = stdout.includes('모델 상태: NEED_DOWNLOAD');
             
             console.log('U2Net 모델 상태:', exists && validSize ? '다운로드됨 (검증됨)' : '다운로드 필요');
             console.log('모델 경로:', modelPath);
             
-            resolve(exists && validSize);
+            if (exists && validSize) {
+                resolve(true);
+            } else if (needsDownload) {
+                // 모델 다운로드 시도
+                console.log('🔄 U2Net 모델 자동 다운로드 시작...');
+                downloadU2NetModel().then(success => {
+                    resolve(success);
+                }).catch(err => {
+                    console.log('❌ 모델 다운로드 실패:', err.message);
+                    resolve(false);
+                });
+            } else {
+                resolve(false);
+            }
+        });
+    });
+}
+
+// U2Net 모델 다운로드 함수
+async function downloadU2NetModel() {
+    return new Promise((resolve, reject) => {
+        const modelDir = process.env.MODEL_DIR || '/tmp/u2net';
+        const modelPath = path.join(modelDir, 'u2net.onnx');
+        
+        const downloadCommand = `${pythonPath} -c "
+import os
+import urllib.request
+import ssl
+
+model_dir = '${modelDir}'
+model_path = '${modelPath}'
+url = 'https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx'
+
+try:
+    os.makedirs(model_dir, exist_ok=True)
+    print('📥 U2Net 모델 다운로드 시작...')
+    
+    # SSL 컨텍스트 설정
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    
+    urllib.request.urlretrieve(url, model_path)
+    print('✅ 모델 다운로드 완료')
+    
+    if os.path.exists(model_path):
+        size = os.path.getsize(model_path)
+        print(f'📊 다운로드된 모델 크기: {size:,} bytes')
+        if size > 100 * 1024 * 1024:
+            print('DOWNLOAD_SUCCESS')
+        else:
+            print('DOWNLOAD_FAILED_SIZE')
+    else:
+        print('DOWNLOAD_FAILED_FILE')
+        
+except Exception as e:
+    print(f'❌ 다운로드 실패: {e}')
+    print('DOWNLOAD_FAILED_ERROR')
+"`;
+        
+        exec(downloadCommand, (error, stdout, stderr) => {
+            if (error) {
+                console.log('모델 다운로드 중 오류:', error.message);
+                reject(error);
+                return;
+            }
+            
+            if (stdout.includes('DOWNLOAD_SUCCESS')) {
+                console.log('✅ U2Net 모델 다운로드 성공');
+                resolve(true);
+            } else {
+                console.log('❌ U2Net 모델 다운로드 실패');
+                resolve(false);
+            }
         });
     });
 }

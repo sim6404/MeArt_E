@@ -1,16 +1,17 @@
-# Render Build Cache Clear - v1.0.25
-# Docker 빌드 오류 수정 및 U2Net 모델 다운로드 안정화
-# 2025-08-22 15:00:00
+# Render Build Cache Clear - v1.0.26
+# Docker 빌드 오류 완전 해결 및 런타임 모델 다운로드 구현
+# 2025-08-22 15:30:00
 
 이 파일은 Render의 빌드 캐시를 강제로 클리어하기 위한 더미 파일입니다.
 파일 내용이 변경되면 Render가 새로운 빌드를 시작합니다.
 
 변경사항:
-- Dockerfile 빌드 오류 수정 (exit code 127 해결)
-- Python 파일 복사 순서 수정
-- 모델 다운로드 명령어 안정화
-- 빌드 시 모델 다운로드 실패 시 런타임 다운로드로 대체
-- package.json 스크립트 Windows 호환성 개선
+- Docker 빌드 오류 완전 해결 (npm postinstall 스크립트 제거)
+- 런타임 U2Net 모델 자동 다운로드 구현
+- checkU2NetModel 함수 개선 (모델 없을 시 자동 다운로드)
+- downloadU2NetModel 함수 추가
+- SSL 컨텍스트 설정으로 안정적인 다운로드
+- 빌드 과정 단순화 및 안정화
 
 이제 Docker 빌드가 성공적으로 완료되고,
-U2Net 모델이 런타임에 안정적으로 다운로드됩니다.
+서버 시작 시 U2Net 모델이 자동으로 다운로드됩니다.
