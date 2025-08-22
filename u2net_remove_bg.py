@@ -3,7 +3,7 @@ import sys
 import os
 import traceback
 import time
-import requests
+import urllib.request
 import hashlib
 
 # 필요한 패키지 임포트
@@ -12,70 +12,59 @@ from PIL import Image
 import numpy as np
 import cv2
 
-# U2Net 모델 자동 다운로드 및 캐시 관리
-def setup_u2net_model():
-    """U2Net 모델을 자동으로 다운로드하고 설정합니다."""
+# U2Net 모델 경로 및 크기 설정
+MODEL_DIR = os.environ.get("MODEL_DIR", "/tmp/u2net")
+MODEL_PATH = os.path.join(MODEL_DIR, "u2net.onnx")
+EXPECTED_SIZE = 176671241  # 바이트 단위, u2net.onnx의 정확한 크기
+
+def download_model():
+    """U2Net 모델을 자동으로 다운로드합니다."""
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    url = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx"
+    print(f"📥 U2Net 모델 다운로드 시작: {url}")
     try:
-        # 모델 디렉토리 설정 (환경변수 우선, Render에서는 /tmp 사용)
-        model_dir = os.environ.get('MODEL_DIR', '/tmp/u2net')
-        os.makedirs(model_dir, exist_ok=True)
+        urllib.request.urlretrieve(url, MODEL_PATH)
+        print("✅ 모델 다운로드 완료")
+    except Exception as e:
+        print(f"❌ 모델 다운로드 실패: {e}")
+        raise RuntimeError("U2Net 모델을 다운로드할 수 없습니다.")
+
+def verify_model():
+    """모델 파일의 존재 여부와 크기를 검증합니다."""
+    if not os.path.exists(MODEL_PATH):
+        print(f"⚠️ 모델 파일이 존재하지 않습니다: {MODEL_PATH}")
+        return False
+    
+    actual_size = os.path.getsize(MODEL_PATH)
+    print(f"📊 모델 파일 크기: {actual_size:,} bytes (예상: {EXPECTED_SIZE:,} bytes)")
+    
+    if actual_size == EXPECTED_SIZE:
+        print("✅ 모델 파일 크기 검증 통과")
+        return True
+    else:
+        print(f"❌ 모델 파일 크기 불일치: {actual_size:,} != {EXPECTED_SIZE:,}")
+        return False
+
+def setup_u2net_model():
+    """U2Net 모델을 설정하고 필요시 다운로드합니다."""
+    try:
+        print(f"🔍 U2Net 모델 확인 중: {MODEL_PATH}")
         
-        # 모델 파일 경로
-        model_path = os.path.join(model_dir, 'u2net.onnx')
+        # 모델 검증
+        if verify_model():
+            print(f"✅ U2Net 모델 준비 완료: {MODEL_PATH}")
+            return MODEL_PATH
         
-        # 모델 파일 존재 및 크기 확인
-        if os.path.exists(model_path):
-            file_size = os.path.getsize(model_path)
-            print(f"✅ U2Net 모델 발견: {model_path} ({file_size:,} bytes)")
-            
-            # 파일 크기 검증 (최소 100MB)
-            if file_size > 100 * 1024 * 1024:
-                print("✅ 모델 파일 크기 검증 통과")
-                return model_path
-            else:
-                print(f"⚠️ 모델 파일 크기가 너무 작습니다: {file_size:,} bytes")
-                os.remove(model_path)
+        # 모델이 없거나 크기가 다르면 다운로드
+        print("🔄 모델 다운로드 필요")
+        download_model()
         
-        # 모델 다운로드
-        print("🔄 U2Net 모델 다운로드 시작...")
-        
-        # REMBG 공식 U2Net 모델 URL
-        model_url = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx"
-        
-        # 다운로드 진행률 표시
-        response = requests.get(model_url, stream=True)
-        response.raise_for_status()
-        
-        total_size = int(response.headers.get('content-length', 0))
-        downloaded_size = 0
-        
-        print(f"📥 다운로드 크기: {total_size:,} bytes")
-        
-        with open(model_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-                    downloaded_size += len(chunk)
-                    
-                    # 진행률 표시 (10%마다)
-                    if total_size > 0:
-                        progress = (downloaded_size / total_size) * 100
-                        if int(progress) % 10 == 0:
-                            print(f"📊 다운로드 진행률: {progress:.1f}% ({downloaded_size:,}/{total_size:,} bytes)")
-        
-        # 다운로드 완료 검증
-        if os.path.exists(model_path):
-            final_size = os.path.getsize(model_path)
-            print(f"✅ 모델 다운로드 완료: {model_path} ({final_size:,} bytes)")
-            
-            if final_size > 100 * 1024 * 1024:
-                print("✅ 모델 파일 검증 완료")
-                return model_path
-            else:
-                print(f"❌ 모델 파일 크기 검증 실패: {final_size:,} bytes")
-                return None
+        # 다운로드 후 재검증
+        if verify_model():
+            print(f"✅ U2Net 모델 설정 완료: {MODEL_PATH}")
+            return MODEL_PATH
         else:
-            print("❌ 모델 파일 다운로드 실패")
+            print("❌ 모델 다운로드 후 검증 실패")
             return None
             
     except Exception as e:
