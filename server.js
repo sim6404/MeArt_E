@@ -363,8 +363,23 @@ function checkPythonEnvironment() {
 // U2Net 모델 다운로드 상태 확인 함수
 async function checkU2NetModel() {
     return new Promise((resolve, reject) => {
-        const modelPath = '/root/.u2net/u2net.onnx';
-        const command = `${pythonPath} -c "import os; print('U2Net 모델 존재:', os.path.exists('${modelPath}'))"`;
+        // 환경변수에서 모델 디렉토리 확인
+        const modelDir = process.env.MODEL_DIR || '/tmp/u2net';
+        const modelPath = path.join(modelDir, 'u2net.onnx');
+        
+        const command = `${pythonPath} -c "
+import os
+model_path = '${modelPath}'
+if os.path.exists(model_path):
+    size = os.path.getsize(model_path)
+    print(f'U2Net 모델 존재: True, 크기: {size:,} bytes')
+    if size > 100 * 1024 * 1024:  # 100MB 이상
+        print('모델 파일 크기 검증: True')
+    else:
+        print('모델 파일 크기 검증: False')
+else:
+    print('U2Net 모델 존재: False')
+"`;
         
         exec(command, (error, stdout, stderr) => {
             if (error) {
@@ -372,9 +387,14 @@ async function checkU2NetModel() {
                 resolve(false);
                 return;
             }
-            const exists = stdout.includes('True');
-            console.log('U2Net 모델 상태:', exists ? '다운로드됨' : '다운로드 필요');
-            resolve(exists);
+            
+            const exists = stdout.includes('U2Net 모델 존재: True');
+            const validSize = stdout.includes('모델 파일 크기 검증: True');
+            
+            console.log('U2Net 모델 상태:', exists && validSize ? '다운로드됨 (검증됨)' : '다운로드 필요');
+            console.log('모델 경로:', modelPath);
+            
+            resolve(exists && validSize);
         });
     });
 }

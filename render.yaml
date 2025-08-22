@@ -1,27 +1,16 @@
 services:
   - type: web
-    name: meart-app
+    name: meart
     env: node
-    region: singapore
-    plan: starter
-    buildCommand: |
-      npm install --omit=dev --no-audit --no-fund &&
-      pip3 install --upgrade pip &&
-      pip3 install --no-cache-dir --root-user-action=ignore -r requirements.txt
+    plan: free
+    buildCommand: npm install
     startCommand: node server.js
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PYTHON_PATH
-        value: python3
+      - key: MODEL_DIR
+        value: /tmp/u2net
       - key: PORT
-        fromService:
-          type: web
-          name: meart-app
-          property: port
-    healthCheckPath: /
-    scaling:
-      minInstances: 1
-      maxInstances: 2
-      targetMemoryPercent: 80
-      targetCPUPercent: 70
+        value: 9000
+    healthCheckPath: /health
+    autoDeploy: true

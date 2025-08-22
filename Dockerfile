@@ -37,6 +37,10 @@ COPY . .
 # uploads 디렉토리 생성 및 권한 설정
 RUN mkdir -p uploads && chmod 755 uploads
 
+# U2Net 모델 디렉토리 생성 및 환경변수 설정
+RUN mkdir -p /tmp/u2net && chmod 755 /tmp/u2net
+ENV MODEL_DIR=/tmp/u2net
+
 # 포트 노출
 EXPOSE 9000
 

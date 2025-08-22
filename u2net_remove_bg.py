@@ -3,12 +3,92 @@ import sys
 import os
 import traceback
 import time
+import requests
+import hashlib
 
 # 필요한 패키지 임포트
 from rembg import remove
 from PIL import Image
 import numpy as np
 import cv2
+
+# U2Net 모델 자동 다운로드 및 캐시 관리
+def setup_u2net_model():
+    """U2Net 모델을 자동으로 다운로드하고 설정합니다."""
+    try:
+        # 모델 디렉토리 설정 (환경변수 우선, Render에서는 /tmp 사용)
+        model_dir = os.environ.get('MODEL_DIR', '/tmp/u2net')
+        os.makedirs(model_dir, exist_ok=True)
+        
+        # 모델 파일 경로
+        model_path = os.path.join(model_dir, 'u2net.onnx')
+        
+        # 모델 파일 존재 및 크기 확인
+        if os.path.exists(model_path):
+            file_size = os.path.getsize(model_path)
+            print(f"✅ U2Net 모델 발견: {model_path} ({file_size:,} bytes)")
+            
+            # 파일 크기 검증 (최소 100MB)
+            if file_size > 100 * 1024 * 1024:
+                print("✅ 모델 파일 크기 검증 통과")
+                return model_path
+            else:
+                print(f"⚠️ 모델 파일 크기가 너무 작습니다: {file_size:,} bytes")
+                os.remove(model_path)
+        
+        # 모델 다운로드
+        print("🔄 U2Net 모델 다운로드 시작...")
+        
+        # REMBG 공식 U2Net 모델 URL
+        model_url = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx"
+        
+        # 다운로드 진행률 표시
+        response = requests.get(model_url, stream=True)
+        response.raise_for_status()
+        
+        total_size = int(response.headers.get('content-length', 0))
+        downloaded_size = 0
+        
+        print(f"📥 다운로드 크기: {total_size:,} bytes")
+        
+        with open(model_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    f.write(chunk)
+                    downloaded_size += len(chunk)
+                    
+                    # 진행률 표시 (10%마다)
+                    if total_size > 0:
+                        progress = (downloaded_size / total_size) * 100
+                        if int(progress) % 10 == 0:
+                            print(f"📊 다운로드 진행률: {progress:.1f}% ({downloaded_size:,}/{total_size:,} bytes)")
+        
+        # 다운로드 완료 검증
+        if os.path.exists(model_path):
+            final_size = os.path.getsize(model_path)
+            print(f"✅ 모델 다운로드 완료: {model_path} ({final_size:,} bytes)")
+            
+            if final_size > 100 * 1024 * 1024:
+                print("✅ 모델 파일 검증 완료")
+                return model_path
+            else:
+                print(f"❌ 모델 파일 크기 검증 실패: {final_size:,} bytes")
+                return None
+        else:
+            print("❌ 모델 파일 다운로드 실패")
+            return None
+            
+    except Exception as e:
+        print(f"❌ U2Net 모델 설정 오류: {e}")
+        traceback.print_exc()
+        return None
+
+# 모델 설정 실행
+MODEL_PATH = setup_u2net_model()
+if MODEL_PATH:
+    print(f"🎯 U2Net 모델 경로: {MODEL_PATH}")
+else:
+    print("⚠️ U2Net 모델 설정 실패, 기본 rembg 설정 사용")
 
 print("=== PYTHON SCRIPT START ===", sys.argv)
 
@@ -41,13 +121,26 @@ def process_image(input_path, output_path, alpha_matting=False, fg_threshold=160
             return False
         
         # 배경 제거 (옷 부분 보존을 위한 보수적 설정)
-        output_image = remove(
-            input_image,
-            alpha_matting=alpha_matting,
-            fg_threshold=fg_threshold,
-            bg_threshold=bg_threshold,
-            erode_structure_size=erode_size
-        )
+        # 모델 경로가 설정된 경우 사용
+        if MODEL_PATH and os.path.exists(MODEL_PATH):
+            print(f"🎯 사용자 정의 모델 사용: {MODEL_PATH}")
+            output_image = remove(
+                input_image,
+                model_path=MODEL_PATH,
+                alpha_matting=alpha_matting,
+                fg_threshold=fg_threshold,
+                bg_threshold=bg_threshold,
+                erode_structure_size=erode_size
+            )
+        else:
+            print("🔧 기본 rembg 모델 사용")
+            output_image = remove(
+                input_image,
+                alpha_matting=alpha_matting,
+                fg_threshold=fg_threshold,
+                bg_threshold=bg_threshold,
+                erode_structure_size=erode_size
+            )
         print(f"배경 제거 완료. 결과 이미지 크기: {output_image.size}")
         
         # rembg 결과 사용 (회전 보정 제거 - rembg가 자동 처리)
