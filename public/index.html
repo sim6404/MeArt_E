@@ -2566,14 +2566,14 @@
         }
 
         // 🔧 서버 준비 상태 폴링 (지수 백오프)
-        async function waitForReady({ url, maxWaitMs = 30000, baseDelay = 300 } = {}) {
+        async function waitForReady({ url, maxWaitMs = 30000, baseDelay = 300, requireAI = false } = {}) {
             const base = url || window.__API_BASE_URL__ || window.env?.API_BASE_URL || '';
             const target = (base ? base.replace(/\/$/, '') : '') + '/readyz';
             const start = Date.now(); 
             let attempt = 0; 
             let lastErr = '';
             
-            console.log('🔄 서버 준비 상태 확인 시작:', target);
+            console.log('🔄 서버 준비 상태 확인 시작:', target, requireAI ? '(AI 기능 필요)' : '(기본 기능만)');
             
             while (Date.now() - start < maxWaitMs) {
                 try {
@@ -2585,10 +2585,17 @@
                     if (res.status === 200) {
                         const data = await res.json();
                         if (data.ready === true) {
-                            console.log('✅ 서버가 준비되었습니다!');
-                            return true;
+                            // AI 기능이 필요한 경우 추가 확인
+                            if (requireAI && !data.aiFeaturesReady) {
+                                lastErr = `AI 기능 준비 중 (${data.aiFeaturesReady})`;
+                                console.log('⏳ AI 기능 초기화 대기 중...');
+                            } else {
+                                console.log('✅ 서버가 준비되었습니다!', requireAI ? '(AI 기능 포함)' : '(기본 기능)');
+                                return true;
+                            }
+                        } else {
+                            lastErr = `ready: ${data.ready}`;
                         }
-                        lastErr = `ready: ${data.ready}`;
                     } else {
                         lastErr = `status ${res.status}`;
                     }
@@ -2599,8 +2606,9 @@
                 const delay = Math.min(2000, baseDelay * Math.pow(2, attempt++));
                 const elapsed = Math.floor((Date.now() - start) / 1000);
                 
-                console.log(`⏳ 서버 준비 대기 중... (${attempt}회, ${elapsed}초 경과, ${lastErr})`);
-                showMessage(`서버가 준비 중입니다. ${elapsed}초 경과...`, 'info');
+                const statusMsg = requireAI ? 'AI 기능 초기화 중' : '서버 준비 중';
+                console.log(`⏳ ${statusMsg}... (${attempt}회, ${elapsed}초 경과, ${lastErr})`);
+                showMessage(`${statusMsg}. ${elapsed}초 경과...`, 'info');
                 
                 await new Promise(r => setTimeout(r, delay));
             }
@@ -2613,13 +2621,13 @@
 
         async function removeBackgroundInternal() {
             try {
-                // 🔧 서버 준비 상태 먼저 확인
+                // 🔧 서버 준비 상태 먼저 확인 (AI 기능 필요)
                 console.log('🔍 서버 준비 상태 확인 중...');
-                const isServerReady = await waitForReady({ maxWaitMs: 30000 });
+                const isServerReady = await waitForReady({ maxWaitMs: 30000, requireAI: true });
                 
                 if (!isServerReady) {
                     console.log('❌ 서버가 준비되지 않았습니다.');
-                    showMessage('서버가 준비 중입니다. 잠시 후 다시 시도해주세요.', 'info');
+                    showMessage('AI 기능이 초기화 중입니다. 잠시 후 다시 시도해주세요.', 'info');
                     return false;
                 }
                 

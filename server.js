@@ -84,6 +84,7 @@ const port = PORT;
 
 // Ready-Gated Server 상태 관리
 let isReady = false;
+let aiFeaturesReady = false; // AI 기능 상태 추가
 global.serverReady = false;
 
 // JWT 시크릿 키는 환경변수에서 이미 설정됨
@@ -263,6 +264,7 @@ app.get('/readyz', (req, res) => {
     if (isReady) {
         return res.status(200).json({ 
             ready: true, 
+            aiFeaturesReady: aiFeaturesReady,
             ts: Date.now(),
             uptime: Math.floor(process.uptime()),
             memory: process.memoryUsage()
@@ -270,6 +272,7 @@ app.get('/readyz', (req, res) => {
     }
     return res.status(503).json({ 
         ready: false, 
+        aiFeaturesReady: false,
         ts: Date.now(),
         message: 'Server is initializing'
     });
@@ -2546,19 +2549,15 @@ async function initializeServer() {
     try {
         console.log('🚀 서버 초기화 시작...');
         
-        // Python 환경 확인
-        await checkPythonEnvironment();
-        console.log('✅ Python 환경 확인 완료');
-        
-        // U2Net 모델 상태 확인
-        const modelExists = await checkU2NetModel();
-        console.log('🐍 U2Net 모델 상태:', modelExists ? '✅ 다운로드됨' : '❌ 다운로드 필요');
-        
-        // 서버 준비 완료
+        // 1단계: 기본 서버 기능 즉시 활성화 (빠른 시작)
         isReady = true;
         global.serverReady = true;
-        console.log('SERVER_READY'); // 외부 스크립트 파싱용 토큰
-        console.log('✅ 서버가 모든 요청을 처리할 준비가 완료되었습니다.');
+        console.log('✅ 기본 서버 기능 활성화 완료');
+        
+        // 2단계: 백그라운드에서 AI 기능 초기화 (점진적 초기화)
+        initializeAIFeatures().catch(error => {
+            console.error('⚠️ AI 기능 초기화 실패 (기본 기능은 정상 작동):', error.message);
+        });
         
     } catch (error) {
         console.error('INIT_FAILED', error);
@@ -2566,10 +2565,41 @@ async function initializeServer() {
     }
 }
 
+// AI 기능 초기화 함수 (백그라운드에서 실행)
+async function initializeAIFeatures() {
+    try {
+        console.log('🤖 AI 기능 초기화 시작...');
+        
+        // Python 환경 확인 (타임아웃 설정)
+        await Promise.race([
+            checkPythonEnvironment(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Python 환경 확인 타임아웃')), 30000))
+        ]);
+        console.log('✅ Python 환경 확인 완료');
+        
+        // U2Net 모델 상태 확인 (타임아웃 설정)
+        await Promise.race([
+            checkU2NetModel(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('U2Net 모델 확인 타임아웃')), 60000))
+        ]);
+        console.log('🐍 U2Net 모델 상태 확인 완료');
+        
+        // AI 기능 준비 완료
+        aiFeaturesReady = true;
+        console.log('🎉 AI 기능 초기화 완료');
+        
+    } catch (error) {
+        console.error('❌ AI 기능 초기화 실패:', error.message);
+        // AI 기능 초기화 실패해도 서버는 계속 실행
+        throw error;
+    }
+}
+
 // 서버 시작
 const server = app.listen(port, '0.0.0.0', () => {
     console.log(`🌐 서버가 http://localhost:${port} 에서 실행 중입니다`);
-    console.log('📊 서버 소켓은 열렸지만 아직 isReady=false -> gate가 503을 유지');
+    console.log('⚡ 빠른 시작 모드: 기본 서버 기능 즉시 사용 가능');
+    console.log('🤖 AI 기능은 백그라운드에서 점진적으로 초기화됩니다');
     console.log('📁 업로드 디렉토리:', uploadDir);
     console.log('🌍 환경 정보:', {
         NODE_ENV: NODE_ENV,
