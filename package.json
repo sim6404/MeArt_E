@@ -1,6 +1,6 @@
 {
   "name": "meart",
-  "version": "1.0.24",
+  "version": "1.0.25",
   "description": "AI-based emotion art generator with brush effects",
   "main": "server.js",
   "engines": {

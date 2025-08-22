@@ -25,10 +25,15 @@ COPY requirements.txt .
 RUN pip3 install --no-cache-dir --upgrade pip
 RUN pip3 install --no-cache-dir --root-user-action=ignore -r requirements.txt
 
-# U2Net 모델 디렉토리 생성 및 모델 다운로드
-RUN mkdir -p /tmp/u2net
+# U2Net 모델 디렉토리 생성 및 환경변수 설정
+RUN mkdir -p /tmp/u2net && chmod 755 /tmp/u2net
 ENV MODEL_DIR=/tmp/u2net
-RUN python -c "import u2net_remove_bg; print('U2Net 모델 다운로드 완료')"
+
+# Python 스크립트 파일 복사 (모델 다운로드용)
+COPY u2net_remove_bg.py ./
+
+# U2Net 모델 다운로드 (선택적)
+RUN python3 -c "import u2net_remove_bg; print('U2Net 모델 다운로드 완료')" 2>/dev/null || echo "모델 다운로드는 런타임에 수행됩니다"
 
 # package.json 및 package-lock.json 복사
 COPY package*.json ./
@@ -36,15 +41,11 @@ COPY package*.json ./
 # Node.js 의존성 설치 (lock 파일 충돌 방지)
 RUN npm ci --only=production
 
-# 앱 소스 복사
+# 나머지 앱 소스 복사
 COPY . .
 
 # uploads 디렉토리 생성 및 권한 설정
 RUN mkdir -p uploads && chmod 755 uploads
-
-# U2Net 모델 디렉토리 생성 및 환경변수 설정
-RUN mkdir -p /tmp/u2net && chmod 755 /tmp/u2net
-ENV MODEL_DIR=/tmp/u2net
 
 # 포트 노출
 EXPOSE 9000
