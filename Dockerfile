@@ -25,11 +25,16 @@ COPY requirements.txt .
 RUN pip3 install --no-cache-dir --upgrade pip
 RUN pip3 install --no-cache-dir --root-user-action=ignore -r requirements.txt
 
+# U2Net 모델 디렉토리 생성 및 모델 다운로드
+RUN mkdir -p /tmp/u2net
+ENV MODEL_DIR=/tmp/u2net
+RUN python -c "import u2net_remove_bg; print('U2Net 모델 다운로드 완료')"
+
 # package.json 및 package-lock.json 복사
 COPY package*.json ./
 
 # Node.js 의존성 설치 (lock 파일 충돌 방지)
-RUN npm install --omit=dev --no-audit --no-fund
+RUN npm ci --only=production
 
 # 앱 소스 복사
 COPY . .
@@ -48,5 +53,5 @@ EXPOSE 9000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:9000/health || exit 1
 
-# 앱 실행
-CMD ["node", "server.js"]
+# 앱 실행 (Ready-Gated Server 패턴)
+CMD ["npm", "run", "start:with-wait"]

@@ -1,0 +1,26 @@
+{
+  "name": "ready-gated-server",
+  "version": "1.0.0",
+  "description": "Node/Express server with readiness gate for proper initialization",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "wait:ready": "node scripts/wait-ready.js",
+    "start:with-wait": "node server.js & node scripts/wait-ready.js",
+    "test": "node test-server.js",
+    "docker:build": "docker build -t ready-gated-server .",
+    "docker:run": "docker run -p 3000:3000 ready-gated-server"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": ["express", "readiness", "health-check", "initialization"],
+  "author": "MeArt Team",
+  "license": "MIT"
+}

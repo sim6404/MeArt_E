@@ -1,6 +1,6 @@
 {
   "name": "meart",
-  "version": "1.0.23",
+  "version": "1.0.24",
   "description": "AI-based emotion art generator with brush effects",
   "main": "server.js",
   "engines": {
@@ -10,9 +10,13 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "build": "pip install -r requirements.txt && python3 -c \"import rembg; print('U2Net 모델 다운로드 완료')\" && npm install && echo 'Build completed'",
+    "wait:ready": "node scripts/wait-ready.js",
+    "start:with-wait": "node server.js & node scripts/wait-ready.js",
+    "selfcheck": "node scripts/selfcheck.mjs",
+    "build": "pip install -r requirements.txt && python -c \"import u2net_remove_bg; print('U2Net 모델 다운로드 완료')\" && npm install && echo 'Build completed'",
     "test": "echo 'No tests specified'",
-    "postinstall": "pip install -r requirements.txt && python3 -c \"import rembg; print('U2Net 모델 다운로드 완료')\""
+    "postinstall": "pip install -r requirements.txt && python -c \"import u2net_remove_bg; print('U2Net 모델 다운로드 완료')\"",
+    "download-model": "python -c \"import u2net_remove_bg; print('U2Net 모델 다운로드 완료')\""
   },
   "keywords": [
     "ai",

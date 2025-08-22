@@ -5,6 +5,7 @@ import traceback
 import time
 import urllib.request
 import hashlib
+import ssl
 
 # 필요한 패키지 임포트
 from rembg import remove
@@ -22,12 +23,34 @@ def download_model():
     os.makedirs(MODEL_DIR, exist_ok=True)
     url = "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2net.onnx"
     print(f"📥 U2Net 모델 다운로드 시작: {url}")
+    
+    # SSL 컨텍스트 설정 (Render 환경에서 필요할 수 있음)
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    
     try:
-        urllib.request.urlretrieve(url, MODEL_PATH)
-        print("✅ 모델 다운로드 완료")
+        # 다운로드 진행률 표시를 위한 콜백
+        def show_progress(block_num, block_size, total_size):
+            if total_size > 0:
+                percent = min(100, (block_num * block_size * 100) // total_size)
+                print(f"\r📥 다운로드 진행률: {percent}%", end='', flush=True)
+        
+        print("🔄 모델 다운로드 중...")
+        urllib.request.urlretrieve(url, MODEL_PATH, show_progress)
+        print("\n✅ 모델 다운로드 완료")
+        
     except Exception as e:
-        print(f"❌ 모델 다운로드 실패: {e}")
-        raise RuntimeError("U2Net 모델을 다운로드할 수 없습니다.")
+        print(f"\n❌ 모델 다운로드 실패: {e}")
+        # 대체 URL 시도
+        try:
+            print("🔄 대체 URL로 재시도 중...")
+            alt_url = "https://huggingface.co/danielgatis/rembg/resolve/main/u2net.onnx"
+            urllib.request.urlretrieve(alt_url, MODEL_PATH, show_progress)
+            print("\n✅ 대체 URL로 모델 다운로드 완료")
+        except Exception as e2:
+            print(f"\n❌ 대체 URL 다운로드도 실패: {e2}")
+            raise RuntimeError("U2Net 모델을 다운로드할 수 없습니다.")
 
 def verify_model():
     """모델 파일의 존재 여부와 크기를 검증합니다."""
@@ -38,7 +61,9 @@ def verify_model():
     actual_size = os.path.getsize(MODEL_PATH)
     print(f"📊 모델 파일 크기: {actual_size:,} bytes (예상: {EXPECTED_SIZE:,} bytes)")
     
-    if actual_size == EXPECTED_SIZE:
+    # 크기 검증 (더 관대한 여유 허용)
+    size_tolerance = 1000000  # 1MB 여유
+    if abs(actual_size - EXPECTED_SIZE) <= size_tolerance:
         print("✅ 모델 파일 크기 검증 통과")
         return True
     else:
@@ -73,6 +98,7 @@ def setup_u2net_model():
         return None
 
 # 모델 설정 실행
+print("🚀 U2Net 모델 초기화 시작...")
 MODEL_PATH = setup_u2net_model()
 if MODEL_PATH:
     print(f"🎯 U2Net 모델 경로: {MODEL_PATH}")

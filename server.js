@@ -82,6 +82,10 @@ console.log(`🔥 Firebase 상태: ${admin ? '활성화' : '비활성화'}`);
 const app = express();
 const port = PORT;
 
+// Ready-Gated Server 상태 관리
+let isReady = false;
+global.serverReady = false;
+
 // JWT 시크릿 키는 환경변수에서 이미 설정됨
 
 // 사용자 데이터 저장소 (실제 프로덕션에서는 데이터베이스 사용)
@@ -222,8 +226,19 @@ app.use('/models', express.static(path.join(__dirname, 'models')));
 // onnix 폴더를 정적 파일로 제공
 app.use('/onnix', express.static(path.join(__dirname, 'onnix')));
 
-// 헬스체크 엔드포인트 (호스팅 서비스용)
+// Readiness Gate 미들웨어 (헬스/레디니스/정적자원은 통과)
+const readinessGate = (req, res, next) => {
+    const allowlist = ['/health', '/readyz', '/favicon.ico'];
+    if (allowlist.includes(req.path) || req.path.startsWith('/static/')) return next();
+    if (req.method === 'OPTIONS' || req.method === 'HEAD') return next();
+    if (!isReady) return res.status(503).json({ error: 'server not ready' });
+    next();
+};
+app.use(readinessGate);
+
+// 헬스체크 엔드포인트 (프로세스 살아있음 확인)
 app.get('/health', (req, res) => {
+    res.set('Cache-Control', 'no-store');
     const healthData = {
         status: 'healthy',
         timestamp: new Date().toISOString(),
@@ -235,11 +250,29 @@ app.get('/health', (req, res) => {
         },
         services: {
             firebase: admin ? 'connected' : 'disabled',
-            python: 'available' // Python 가용성은 실제 체크하지 않음 (빠른 응답을 위해)
+            python: 'available'
         }
     };
     
     res.status(200).json(healthData);
+});
+
+// Readiness 체크 엔드포인트 (서버 준비 상태 확인)
+app.get('/readyz', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (isReady) {
+        return res.status(200).json({ 
+            ready: true, 
+            ts: Date.now(),
+            uptime: Math.floor(process.uptime()),
+            memory: process.memoryUsage()
+        });
+    }
+    return res.status(503).json({ 
+        ready: false, 
+        ts: Date.now(),
+        message: 'Server is initializing'
+    });
 });
 
 // API 상태 체크 엔드포인트
@@ -2425,12 +2458,35 @@ app.use((err, req, res, next) => {
     });
 });
 
-// 서버 준비 상태 플래그 초기화
-global.serverReady = false;
+// 서버 초기화 함수
+async function initializeServer() {
+    try {
+        console.log('🚀 서버 초기화 시작...');
+        
+        // Python 환경 확인
+        await checkPythonEnvironment();
+        console.log('✅ Python 환경 확인 완료');
+        
+        // U2Net 모델 상태 확인
+        const modelExists = await checkU2NetModel();
+        console.log('🐍 U2Net 모델 상태:', modelExists ? '✅ 다운로드됨' : '❌ 다운로드 필요');
+        
+        // 서버 준비 완료
+        isReady = true;
+        global.serverReady = true;
+        console.log('SERVER_READY'); // 외부 스크립트 파싱용 토큰
+        console.log('✅ 서버가 모든 요청을 처리할 준비가 완료되었습니다.');
+        
+    } catch (error) {
+        console.error('INIT_FAILED', error);
+        process.exit(1);
+    }
+}
 
 // 서버 시작
-const server = app.listen(port, '0.0.0.0', async () => {
-    console.log(`🚀 서버가 http://localhost:${port} 에서 실행 중입니다.`);
+const server = app.listen(port, '0.0.0.0', () => {
+    console.log(`🌐 서버가 http://localhost:${port} 에서 실행 중입니다`);
+    console.log('📊 서버 소켓은 열렸지만 아직 isReady=false -> gate가 503을 유지');
     console.log('📁 업로드 디렉토리:', uploadDir);
     console.log('🌍 환경 정보:', {
         NODE_ENV: NODE_ENV,
@@ -2440,43 +2496,8 @@ const server = app.listen(port, '0.0.0.0', async () => {
         arch: process.arch
     });
     
-    try {
-        await checkPythonEnvironment();
-        console.log('✅ Python 환경 확인 완료');
-    } catch (error) {
-        console.error('❌ Python 환경 확인 실패:', error);
-    }
-    
-    // 서버 시작 완료 로그
-    console.log('🎉 MeArt 서버 시작 완료!');
-    console.log('🚀 서버 버전:', process.env.npm_package_version || '1.0.18');
-    console.log('🌍 환경:', process.env.NODE_ENV || 'development');
-    console.log('🔗 서버 URL:', `http://localhost:${port}`);
-    console.log('📊 메모리 사용량:', process.memoryUsage());
-    
-    // 서버 상태 확인을 위한 내부 헬스체크
-    setTimeout(() => {
-        console.log('🔍 서버 내부 상태 확인 중...');
-        console.log('📊 메모리 사용량:', process.memoryUsage());
-        console.log('⏱️ 서버 업타임:', Math.floor(process.uptime()), '초');
-        
-        // 서버가 완전히 준비되었는지 확인
-        console.log('✅ 서버가 모든 요청을 처리할 준비가 완료되었습니다.');
-        console.log('🌐 서버 URL:', `http://localhost:${port}`);
-        console.log('🔗 헬스체크 URL:', `http://localhost:${port}/health`);
-        console.log('📊 API 상태 URL:', `http://localhost:${port}/api/status`);
-        
-        // U2Net 모델 상태 확인
-        checkU2NetModel().then(exists => {
-            console.log('🐍 U2Net 모델 상태:', exists ? '✅ 다운로드됨' : '❌ 다운로드 필요');
-        }).catch(error => {
-            console.log('🐍 U2Net 모델 확인 실패:', error.message);
-        });
-        
-        // 서버 준비 상태 플래그 설정
-        global.serverReady = true;
-        console.log('🚀 서버 준비 상태 플래그 설정 완료');
-    }, 3000); // 5초에서 3초로 단축
+    // 서버 초기화 시작
+    initializeServer();
 });
 
 // 서버 오류 처리
@@ -2600,3 +2621,17 @@ function downloadImage(url, filename = 'meart_result.png') {
     a.click();
     document.body.removeChild(a);
 }
+
+// Graceful Shutdown
+function shutdown(signal) {
+    console.log(`🛑 ${signal} 신호 수신, 서버 종료 중...`);
+    isReady = false;
+    global.serverReady = false;
+    server?.close(() => {
+        console.log('✅ HTTP 서버 종료 완료');
+        process.exit(0);
+    });
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));

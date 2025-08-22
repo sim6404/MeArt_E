@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ready-Gated Server 클라이언트</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.loading {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .api-test {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #007bff;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Ready-Gated Server 클라이언트</h1>
+        
+        <div id="status" class="status loading">
+            🔄 서버 준비 상태 확인 중...
+        </div>
+        
+        <div class="progress">
+            <div id="progressBar" class="progress-bar" style="width: 0%"></div>
+        </div>
+        
+        <div id="log" class="log"></div>
+        
+        <div id="appContent" style="display: none;">
+            <h2>✅ 앱이 준비되었습니다!</h2>
+            <p>서버가 완전히 초기화되어 정상적으로 작동하고 있습니다.</p>
+            
+            <div class="api-test">
+                <h3>API 테스트</h3>
+                <button onclick="testHealthCheck()">Health Check</button>
+                <button onclick="testReadinessCheck()">Readiness Check</button>
+                <button onclick="testApiCall()">API Call</button>
+                <div id="apiResult"></div>
+            </div>
+        </div>
+        
+        <div id="errorContent" style="display: none;">
+            <h2>❌ 서버 연결 실패</h2>
+            <p>서버에 연결할 수 없습니다. 다음을 확인해주세요:</p>
+            <ul>
+                <li>서버가 실행 중인지 확인</li>
+                <li>포트 3000이 올바른지 확인</li>
+                <li>네트워크 연결 상태 확인</li>
+            </ul>
+            <button onclick="location.reload()">다시 시도</button>
+        </div>
+    </div>
+
+    <script>
+        // 환경변수 설정 (실제 환경에서는 서버에서 제공)
+        const READY_URL = 'http://localhost:3000/readyz';
+        const READY_TIMEOUT_MS = 30000; // 30초
+        const READY_POLL_MS = 500; // 0.5초
+        
+        let startTime = Date.now();
+        let pollCount = 0;
+        let isAppInitialized = false;
+        
+        // 로그 출력 함수
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+        
+        // 상태 업데이트 함수
+        function updateStatus(message, type = 'loading') {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+        
+        // 진행률 업데이트 함수
+        function updateProgress(percent) {
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = `${percent}%`;
+        }
+        
+        // 서버 준비 상태 폴링 (지수 백오프)
+        async function waitForReady() {
+            log('🔄 서버 준비 상태 확인 시작');
+            log(`📊 설정: 타임아웃=${READY_TIMEOUT_MS}ms, 폴링=${READY_POLL_MS}ms`);
+            
+            while (true) {
+                pollCount++;
+                const elapsed = Date.now() - startTime;
+                
+                // 타임아웃 체크
+                if (elapsed >= READY_TIMEOUT_MS) {
+                    log(`❌ 서버 준비 대기 시간 초과 (${elapsed}ms >= ${READY_TIMEOUT_MS}ms)`);
+                    updateStatus('❌ 서버 준비 대기 시간 초과', 'error');
+                    showErrorContent();
+                    return false;
+                }
+                
+                // 진행률 업데이트
+                const progress = Math.min((elapsed / READY_TIMEOUT_MS) * 100, 100);
+                updateProgress(progress);
+                
+                // 지수 백오프 계산 (최대 2초)
+                const backoffDelay = Math.min(READY_POLL_MS * Math.pow(1.1, pollCount - 1), 2000);
+                
+                try {
+                    log(`📡 서버 상태 확인 중... (${pollCount}회, ${elapsed}ms 경과)`);
+                    
+                    const response = await fetch(READY_URL, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.status === 200 && data.ready === true) {
+                        log(`✅ 서버가 준비되었습니다! (${elapsed}ms, ${pollCount}회 시도)`);
+                        log(`📊 응답: ${JSON.stringify(data)}`);
+                        updateStatus('✅ 서버가 준비되었습니다!', 'success');
+                        updateProgress(100);
+                        return true;
+                    } else {
+                        log(`⏳ 서버 준비 대기 중... (${pollCount}회, ${elapsed}ms 경과)`);
+                        log(`📊 상태: ${response.status}, 응답: ${JSON.stringify(data)}`);
+                        updateStatus(`⏳ 서버 준비 대기 중... (${Math.floor(elapsed/1000)}초 경과)`, 'loading');
+                        
+                        // 지수 백오프로 대기
+                        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+                    }
+                } catch (error) {
+                    log(`⏳ 서버 연결 대기 중... (${pollCount}회, ${elapsed}ms 경과)`);
+                    log(`📊 오류: ${error.message}`);
+                    updateStatus(`⏳ 서버 연결 대기 중... (${Math.floor(elapsed/1000)}초 경과)`, 'loading');
+                    
+                    // 지수 백오프로 대기
+                    await new Promise(resolve => setTimeout(resolve, backoffDelay));
+                }
+            }
+        }
+        
+        // 앱 초기화 함수
+        function initApp() {
+            if (isAppInitialized) return;
+            
+            log('🚀 앱 초기화 시작');
+            isAppInitialized = true;
+            
+            // 앱 콘텐츠 표시
+            document.getElementById('appContent').style.display = 'block';
+            
+            log('✅ 앱 초기화 완료');
+        }
+        
+        // 에러 콘텐츠 표시
+        function showErrorContent() {
+            document.getElementById('errorContent').style.display = 'block';
+        }
+        
+        // API 테스트 함수들
+        async function testHealthCheck() {
+            try {
+                const response = await fetch('/healthz');
+                const data = await response.json();
+                document.getElementById('apiResult').innerHTML = `
+                    <div class="status success">
+                        ✅ Health Check 성공<br>
+                        상태: ${response.status}<br>
+                        응답: ${JSON.stringify(data)}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('apiResult').innerHTML = `
+                    <div class="status error">
+                        ❌ Health Check 실패<br>
+                        오류: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        async function testReadinessCheck() {
+            try {
+                const response = await fetch('/readyz');
+                const data = await response.json();
+                document.getElementById('apiResult').innerHTML = `
+                    <div class="status success">
+                        ✅ Readiness Check 성공<br>
+                        상태: ${response.status}<br>
+                        응답: ${JSON.stringify(data)}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('apiResult').innerHTML = `
+                    <div class="status error">
+                        ❌ Readiness Check 실패<br>
+                        오류: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        async function testApiCall() {
+            try {
+                const response = await fetch('/api/hello');
+                const data = await response.json();
+                document.getElementById('apiResult').innerHTML = `
+                    <div class="status success">
+                        ✅ API Call 성공<br>
+                        상태: ${response.status}<br>
+                        응답: ${JSON.stringify(data)}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('apiResult').innerHTML = `
+                    <div class="status error">
+                        ❌ API Call 실패<br>
+                        오류: ${error.message}
+                    </div>
+                `;
+            }
+        }
+        
+        // 앱 시작
+        async function startApp() {
+            log('🌐 Ready-Gated Server 클라이언트 시작');
+            
+            // 서버 준비 대기
+            const isReady = await waitForReady();
+            
+            if (isReady) {
+                // 앱 초기화
+                initApp();
+            }
+        }
+        
+        // 페이지 로드 시 앱 시작
+        document.addEventListener('DOMContentLoaded', startApp);
+    </script>
+</body>
+</html>
