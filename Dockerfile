@@ -2,7 +2,7 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-# 시스템 패키지 설치 (Python 의존성 + Alpine Linux 호환성)
+# 시스템 패키지 설치 (Python 의존성 + Alpine Linux 호환성 + bcrypt 빌드 도구)
 RUN apk add --no-cache \
     python3 \
     python3-dev \
@@ -11,6 +11,10 @@ RUN apk add --no-cache \
     libc6-compat \
     musl-dev \
     linux-headers \
+    python3-dev \
+    gcc \
+    g++ \
+    make \
     && rm -rf /var/cache/apk/*
 
 # package.json과 package-lock.json 복사
@@ -19,8 +23,8 @@ COPY package.json package-lock.json ./
 # lock 파일 존재 확인 (단호하게)
 RUN test -f package-lock.json
 
-# npm ci로 의존성 설치 (최신 플래그 사용)
-RUN npm ci --omit=dev --no-audit --no-fund
+# npm ci로 의존성 설치 (bcrypt 호환성을 위한 추가 설정)
+RUN npm ci --omit=dev --no-audit --no-fund --build-from-source
 
 # Python 의존성 설치 (externally-managed-environment 오류 완전 해결)
 COPY requirements.txt ./
