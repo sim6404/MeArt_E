@@ -2,7 +2,7 @@
   "name": "render-ready-web",
   "private": true,
   "type": "commonjs",
-  "version": "1.0.34",
+  "version": "1.0.35",
   "description": "AI-based emotion art generator with brush effects",
   "main": "server.js",
   "scripts": {
@@ -26,11 +26,7 @@
   },
   "overrides": {
     "rimraf": "5.0.5",
-    "npmlog": "7.0.1",
-    "inflight": "2.0.0",
-    "glob": "10.3.10",
-    "are-we-there-yet": "4.0.0",
-    "gauge": "5.0.0"
+    "glob": "10.3.10"
   },
   "engines": { 
     "node": ">=18" 
