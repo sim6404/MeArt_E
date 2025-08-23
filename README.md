@@ -68,7 +68,7 @@ docker run -p 9000:9000 meart
 
 ### 5. **접속**
 - 로컬: http://localhost:9000
-- 헬스체크: http://localhost:9000/health
+- 헬스체크: http://localhost:9000/healthz
 
 
 
@@ -95,7 +95,7 @@ docker run -p 9000:9000 meart
 
 ### **헬스체크**
 ```http
-GET /health
+GET /healthz
 ```
 서버 상태, 메모리 사용량, 서비스 연결 상태 확인
 
@@ -280,7 +280,7 @@ docker compose up -d
 ### **디버깅**
 ```bash
 # 헬스체크
-curl http://localhost:9000/health
+curl http://localhost:9000/healthz
 
 # 로그 모니터링  
 tail -f server.log

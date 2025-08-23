@@ -24,7 +24,8 @@ const mimeTypes = {
 };
 
 // 환경 변수 설정 (Render 배포 최적화)
-const PORT = process.env.PORT || 9000;
+const PORT = Number(process.env.PORT || 9000);  // Render가 주입하는 PORT를 우선 사용, Number로 변환
+const HOST = process.env.HOST || '0.0.0.0';     // 명시적으로 0.0.0.0 설정
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-default-jwt-secret-change-in-production';
 const RENDER_EXTERNAL_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
@@ -204,19 +205,20 @@ async function authenticateToken(req, res, next) {
 }
 
 // CORS 설정
-app.use(cors({
-    origin: ['http://localhost:9000', 'http://127.0.0.1:9000', 'null'],
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'Authorization'], // Authorization 헤더 추가
-    credentials: true
-}));
+app.use(cors());
 
-// 기본 미들웨어 설정
+// JSON 파싱 미들웨어
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// 정적 파일 제공 (public 폴더를 가장 먼저!)
-app.use(express.static(path.join(__dirname, 'public')));
+// 정적 파일 서빙 (캐시 방지)
+app.use(express.static('public', { 
+    maxAge: 0, 
+    etag: false,
+    setHeaders: (res) => {
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    }
+}));
 
 // BG_image 폴더를 정적 파일로 제공
 app.use('/BG_image', express.static(path.join(__dirname, 'BG_image')));
@@ -229,7 +231,7 @@ app.use('/onnix', express.static(path.join(__dirname, 'onnix')));
 
 // Readiness Gate 미들웨어 (헬스/레디니스/정적자원은 통과)
 const readinessGate = (req, res, next) => {
-    const allowlist = ['/health', '/readyz', '/favicon.ico'];
+    const allowlist = ['/healthz', '/readyz', '/favicon.ico'];
     if (allowlist.includes(req.path) || req.path.startsWith('/static/')) return next();
     if (req.method === 'OPTIONS' || req.method === 'HEAD') return next();
     if (!isReady) return res.status(503).json({ error: 'server not ready' });
@@ -238,7 +240,7 @@ const readinessGate = (req, res, next) => {
 app.use(readinessGate);
 
 // 헬스체크 엔드포인트 (프로세스 살아있음 확인)
-app.get('/health', (req, res) => {
+app.get('/healthz', (req, res) => {
     res.set('Cache-Control', 'no-store');
     const healthData = {
         status: 'healthy',
@@ -2552,6 +2554,7 @@ async function initializeServer() {
         // 1단계: 기본 서버 기능 즉시 활성화 (빠른 시작)
         isReady = true;
         global.serverReady = true;
+        console.log('SERVER_READY'); // 외부 스크립트 파싱용 토큰
         console.log('✅ 기본 서버 기능 활성화 완료');
         
         // 2단계: 백그라운드에서 AI 기능 초기화 (점진적 초기화)
@@ -2596,8 +2599,8 @@ async function initializeAIFeatures() {
 }
 
 // 서버 시작
-const server = app.listen(port, '0.0.0.0', () => {
-    console.log(`🌐 서버가 http://localhost:${port} 에서 실행 중입니다`);
+const server = app.listen(port, HOST, () => {
+    console.log(`🌐 서버가 http://${HOST}:${port} 에서 실행 중입니다`);
     console.log('⚡ 빠른 시작 모드: 기본 서버 기능 즉시 사용 가능');
     console.log('🤖 AI 기능은 백그라운드에서 점진적으로 초기화됩니다');
     console.log('📁 업로드 디렉토리:', uploadDir);

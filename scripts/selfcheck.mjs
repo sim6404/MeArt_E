@@ -19,8 +19,8 @@ function get(path) {
         
         // 1. Health Check 테스트
         console.log('1️⃣ Health Check 테스트...');
-        const health = await get('/health');
-        if (health.code !== 200) throw new Error('/health != 200');
+        const health = await get('/healthz');
+        if (health.code !== 200) throw new Error('/healthz != 200');
         console.log('✅ Health Check 통과');
         
         // 2. Readiness Check (초기 상태) 테스트

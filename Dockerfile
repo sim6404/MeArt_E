@@ -44,9 +44,9 @@ RUN mkdir -p uploads && chmod 755 uploads
 # 포트 노출
 EXPOSE 9000
 
-# 헬스체크 추가
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:9000/health || exit 1
+# 헬스체크
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:9000/healthz || exit 1
 
 # 앱 실행 (Ready-Gated Server 패턴)
 CMD ["npm", "run", "start:with-wait"]
