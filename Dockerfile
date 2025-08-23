@@ -2,18 +2,11 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-# 시스템 패키지 설치 (Python 의존성 + Alpine Linux 호환성 + bcrypt 빌드 도구)
+# 시스템 패키지 설치 (기본 도구만)
 RUN apk add --no-cache \
-    python3 \
-    python3-dev \
-    py3-pip \
-    py3-numpy \
-    py3-pillow \
-    py3-requests \
     build-base \
     libc6-compat \
     musl-dev \
-    linux-headers \
     gcc \
     g++ \
     make \
@@ -28,29 +21,12 @@ RUN test -f package-lock.json
 # npm ci로 의존성 설치 (bcrypt 호환성을 위한 추가 설정)
 RUN npm ci --omit=dev --no-audit --no-fund --build-from-source
 
-# Python 의존성 설치 (시스템 패키지 우선, pip 최소 사용)
-COPY requirements.txt ./
-# 가상환경 생성 및 활성화
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-# pip 업그레이드 (안정적인 버전 사용)
-RUN pip install --upgrade pip==23.0.1 setuptools==67.7.2 wheel==0.40.0
-# 필수 패키지만 pip로 설치 (시스템에 없는 것들)
-RUN pip install --no-cache-dir onnxruntime==1.15.1
-RUN pip install --no-cache-dir rembg==2.0.43
-RUN pip install --no-cache-dir scikit-image==0.19.3
-RUN pip install --no-cache-dir imageio==2.25.1
-
 # ---- runner stage ----
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-# 시스템 패키지 설치 (런타임용 + Python 패키지)
+# 시스템 패키지 설치 (런타임용)
 RUN apk add --no-cache \
-    python3 \
-    py3-numpy \
-    py3-pillow \
-    py3-requests \
     libc6-compat \
     curl \
     && rm -rf /var/cache/apk/*
@@ -64,8 +40,6 @@ RUN mkdir -p /tmp/u2net && chmod 755 /tmp/u2net
 
 # 의존성 복사
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
 
 # 앱 소스 복사
 COPY . .
