@@ -2,13 +2,15 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-# 시스템 패키지 설치 (Python 의존성)
+# 시스템 패키지 설치 (Python 의존성 + Alpine Linux 호환성)
 RUN apk add --no-cache \
     python3 \
     python3-dev \
     py3-pip \
     build-base \
     libc6-compat \
+    musl-dev \
+    linux-headers \
     && rm -rf /var/cache/apk/*
 
 # package.json과 package-lock.json 복사
@@ -25,7 +27,7 @@ COPY requirements.txt ./
 # Alpine Linux에서는 pip 대신 apk 사용하거나 가상환경 생성
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --upgrade pip
+RUN pip install --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ---- runner stage ----

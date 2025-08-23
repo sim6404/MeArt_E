@@ -1,17 +1,17 @@
-# 안정적인 Python 패키지 (Ubuntu/Debian 호환)
-opencv-python-headless>=4.5.0,<5.0.0
-pillow>=9.0.0,<11.0.0
-numpy>=1.21.0,<2.0.0
+# 안정적인 Python 패키지 (Alpine Linux 호환)
+opencv-python-headless==4.8.1.78
+pillow==10.0.1
+numpy==1.24.3
 
-# ONNX 모델 추론 (감정 분석용)
-onnxruntime>=1.12.0,<2.0.0
+# ONNX 모델 추론 (감정 분석용) - Alpine Linux 호환 버전
+onnxruntime==1.16.3
 
 # 배경 제거 라이브러리 (안정 버전)
-rembg>=2.0.30,<3.0.0
+rembg==2.0.50
 
 # 이미지 처리 및 필터 효과
-scikit-image>=0.18.0,<1.0.0
-imageio>=2.20.0,<3.0.0
+scikit-image==0.21.0
+imageio==2.31.5
 
 # 기타 의존성
-requests>=2.25.0,<3.0.0
+requests==2.31.0
