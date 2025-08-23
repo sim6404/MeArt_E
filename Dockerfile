@@ -48,5 +48,5 @@ EXPOSE 9000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:9000/healthz || exit 1
 
-# 앱 실행 (Ready-Gated Server 패턴)
-CMD ["npm", "run", "start:with-wait"]
+# 앱 실행 (Express.js 최적화)
+CMD ["npm", "run", "start"]

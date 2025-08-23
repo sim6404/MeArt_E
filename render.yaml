@@ -3,8 +3,10 @@ services:
     name: meart
     env: node
     plan: free
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    healthCheckPath: /healthz
+    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
@@ -12,5 +14,3 @@ services:
         value: /tmp/u2net
       - key: PORT
         value: 9000
-    healthCheckPath: /healthz
-    autoDeploy: true

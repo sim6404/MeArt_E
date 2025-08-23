@@ -41,7 +41,7 @@ function get(path) {
             execSync('node scripts/wait-ready.js', { stdio: 'inherit' });
             console.log('✅ 서버 준비 대기 완료');
         } catch (error) {
-            console.log('⚠️ 서버 준비 대기 실패 (정상일 수 있음)');
+            console.log('⚠️ 서버 연결 확인 실패 (정상일 수 있음)');
         }
         
         // 5. Readiness Check (준비 후) 테스트

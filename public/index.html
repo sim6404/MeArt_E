@@ -2613,9 +2613,9 @@
                 await new Promise(r => setTimeout(r, delay));
             }
             
-            const errorMsg = `서버 준비 대기 실패: 일정 시간 내에 준비되지 않았습니다. (url=${target}, 마지막 오류=${lastErr})`;
+            const errorMsg = `서버 연결 확인 중: 일정 시간 내에 응답하지 않았습니다. (url=${target}, 마지막 오류=${lastErr})`;
             console.error(errorMsg);
-            showMessage('서버가 준비 중입니다. 잠시 후 다시 시도해주세요.', 'info');
+            showMessage('서버에 연결 중입니다. 잠시 후 다시 시도해주세요.', 'info');
             return false;
         }
 
