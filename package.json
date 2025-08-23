@@ -2,11 +2,11 @@
   "name": "render-ready-web",
   "private": true,
   "type": "commonjs",
-  "version": "1.0.40",
+  "version": "1.0.41",
   "description": "AI-based emotion art generator with brush effects",
   "main": "server.js",
   "scripts": {
-    "build": "echo skip",
+    "build": "echo 'Build completed'",
     "start": "node server.js"
   },
   "dependencies": {

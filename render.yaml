@@ -1,22 +1,24 @@
 services:
   - type: web
     name: meart-e
-    env: node
-    plan: free
+    env: docker
+    plan: starter
+    region: singapore
+    repo: https://github.com/sim6404/MeArt_E
+    branch: main
     buildCommand: npm ci && npm run build
     startCommand: npm run start
     healthCheckPath: /healthz
-    autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 10000
       - key: MAX_BODY
-        value: 25mb
+        value: 50mb
       - key: REMOVE_BG_CONCURRENCY
         value: 1
       - key: REMOVE_BG_TIMEOUT_MS
         value: 45000
-      - key: MODEL_DIR
-        value: /tmp/u2net
-      - key: PORT
-        value: 9000
+      - key: BOOT_DELAY_MS
+        value: 0

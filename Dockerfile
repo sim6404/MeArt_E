@@ -10,6 +10,7 @@ RUN apk add --no-cache \
     gcc \
     g++ \
     make \
+    curl \
     && rm -rf /var/cache/apk/*
 
 # package.json과 package-lock.json 복사
@@ -33,7 +34,7 @@ RUN apk add --no-cache \
 
 # 환경변수 설정
 ENV NODE_ENV=production
-ENV MODEL_DIR=/tmp/u2net
+ENV PORT=10000
 
 # U2Net 모델 디렉토리 생성
 RUN mkdir -p /tmp/u2net && chmod 755 /tmp/u2net
@@ -48,11 +49,11 @@ COPY . .
 RUN mkdir -p uploads && chmod 755 uploads
 
 # 포트 노출
-EXPOSE 9000
+EXPOSE 10000
 
 # 헬스체크
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:9000/healthz || exit 1
+  CMD curl -f http://localhost:10000/healthz || exit 1
 
 # 앱 실행
 CMD ["node", "server.js"]

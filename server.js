@@ -59,7 +59,9 @@ app.get('/healthz', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    port: PORT,
+    host: HOST
   });
 });
 
@@ -70,7 +72,9 @@ app.get('/readyz', (req, res) => {
     res.status(200).json({
       status: 'ready',
       timestamp: new Date().toISOString(),
-      uptime: process.uptime()
+      uptime: process.uptime(),
+      port: PORT,
+      host: HOST
     });
   } else {
     res.status(503).json({
@@ -84,6 +88,8 @@ app.get('/readyz', (req, res) => {
 // 서버 초기화 함수
 async function init() {
   console.log('🚀 서버 초기화 시작...');
+  console.log(`📊 환경: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔧 설정: PORT=${PORT}, HOST=${HOST}, MAX_BODY=${MAX_BODY}`);
   
   // 부팅 지연 (필요시)
   if (BOOT_DELAY_MS > 0) {
