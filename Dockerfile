@@ -51,8 +51,8 @@ RUN mkdir -p uploads && chmod 755 uploads
 # 포트 노출
 EXPOSE 10000
 
-# 헬스체크
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+# 헬스체크 (더 관대한 설정)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=5 \
   CMD curl -f http://localhost:10000/healthz || exit 1
 
 # 앱 실행

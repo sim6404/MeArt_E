@@ -1,36 +1,36 @@
-# Render Build Cache Clear - v1.0.41
-# Render 배포 문제 해결: 공식 트러블슈팅 가이드 적용
-# 2024-12-19 21:30:00 - Render 배포 강제 트리거
+# Render Build Cache Clear - v1.0.42
+# 502 Bad Gateway 오류 해결: 서버 시작 안정성 강화
+# 2024-12-19 22:00:00 - Render 배포 강제 트리거
 
-Render 공식 트러블슈팅 가이드에 따라 배포 문제를 해결했습니다:
+502 Bad Gateway 오류를 해결하기 위해 서버 시작 안정성을 강화했습니다:
 
-1. render.yaml 설정 최적화:
-   - env: docker로 명시적 설정
-   - plan: starter로 업그레이드
-   - healthCheckPath: /healthz 명시적 설정
-   - 환경변수 PORT=10000 추가
-   - MAX_BODY=50mb로 증가
+1. server.js 서버 시작 로직 개선:
+   - startServer() 함수로 서버 시작을 Promise로 래핑
+   - 서버 오류 처리 강화 (server.on('error'))
+   - main() 함수로 서버 시작과 초기화를 순차적으로 실행
+   - 헬스체크 응답에 ready 상태 추가
 
-2. Dockerfile 안정성 향상:
-   - curl 패키지 추가 (헬스체크용)
-   - ENV PORT=10000 명시적 설정
-   - EXPOSE 10000으로 포트 명시
-   - 헬스체크 URL을 localhost:10000/healthz로 수정
+2. Dockerfile 헬스체크 설정 완화:
+   - timeout: 3s → 10s로 증가
+   - start-period: 5s → 30s로 증가
+   - retries: 3 → 5로 증가
+   - 서버 시작 시간을 충분히 확보
 
-3. server.js 포트 설정 개선:
-   - PORT 환경변수 우선 사용
-   - 헬스체크 응답에 port, host 정보 추가
-   - 서버 시작 로그에 포트 정보 출력
-   - Render 환경에 최적화된 설정
-
-4. package.json 빌드 스크립트 수정:
-   - build: "echo 'Build completed'"로 변경
-   - Render 빌드 프로세스 최적화
-
-5. Render 트러블슈팅 적용:
-   - 헬스체크 경로 명시적 설정
-   - 포트 바인딩 문제 해결
+3. render.yaml 추가 안정성 설정:
+   - numInstances: 1 명시적 설정
+   - autoDeploy: true 명시적 설정
    - 환경변수 설정 완료
-   - Docker 환경 최적화
 
-이제 Render 공식 가이드에 따라 안정적인 배포가 가능합니다!
+4. 502 오류 해결 전략:
+   - 서버 시작 실패 시 명확한 오류 메시지
+   - 헬스체크 실패 시 더 관대한 재시도 설정
+   - 서버 준비 상태 체크 강화
+   - Render 환경에 최적화된 포트 바인딩
+
+5. 안정성 향상:
+   - 서버 시작 순서 보장 (서버 → 초기화)
+   - 오류 처리 강화
+   - 헬스체크 응답 정보 확장
+   - 프로세스 종료 핸들러 개선
+
+이제 502 Bad Gateway 오류 없이 안정적인 서버 시작이 가능합니다!

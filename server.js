@@ -20,6 +20,7 @@ const BOOT_DELAY_MS = Number(process.env.BOOT_DELAY_MS || 0);
 
 // 서버 준비 상태
 let isReady = false;
+let server = null;
 
 // 이미지 처리 큐
 const imageQueue = new Queue({ concurrency: CONCURRENCY });
@@ -61,7 +62,8 @@ app.get('/healthz', (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     port: PORT,
-    host: HOST
+    host: HOST,
+    ready: isReady
   });
 });
 
@@ -74,13 +76,16 @@ app.get('/readyz', (req, res) => {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       port: PORT,
-      host: HOST
+      host: HOST,
+      ready: true
     });
   } else {
     res.status(503).json({
       status: 'not_ready',
       message: '서버가 아직 초기화 중입니다.',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      ready: false
     });
   }
 });
@@ -205,31 +210,56 @@ app.use((error, req, res, next) => {
 });
 
 // 서버 생성 및 설정
-const server = app.listen(PORT, HOST, () => {
-  console.log(`🚀 서버가 ${HOST}:${PORT}에서 시작되었습니다.`);
-  console.log(`📊 환경: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔧 설정: MAX_BODY=${MAX_BODY}, CONCURRENCY=${CONCURRENCY}, TIMEOUT=${JOB_TIMEOUT_MS}ms`);
-});
+function startServer() {
+  return new Promise((resolve, reject) => {
+    try {
+      server = app.listen(PORT, HOST, () => {
+        console.log(`🚀 서버가 ${HOST}:${PORT}에서 시작되었습니다.`);
+        console.log(`📊 환경: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`🔧 설정: MAX_BODY=${MAX_BODY}, CONCURRENCY=${CONCURRENCY}, TIMEOUT=${JOB_TIMEOUT_MS}ms`);
+        resolve();
+      });
 
-// 서버 설정
-server.keepAliveTimeout = 65000;
-server.headersTimeout = 66000;
+      // 서버 설정
+      server.keepAliveTimeout = 65000;
+      server.headersTimeout = 66000;
+
+      // 서버 오류 처리
+      server.on('error', (error) => {
+        console.error('❌ 서버 시작 오류:', error);
+        reject(error);
+      });
+
+    } catch (error) {
+      console.error('❌ 서버 생성 오류:', error);
+      reject(error);
+    }
+  });
+}
 
 // 프로세스 종료 핸들러
 process.on('SIGINT', () => {
   console.log('\n🛑 서버 종료 중...');
-  server.close(() => {
-    console.log('✅ 서버가 정상적으로 종료되었습니다.');
+  if (server) {
+    server.close(() => {
+      console.log('✅ 서버가 정상적으로 종료되었습니다.');
+      process.exit(0);
+    });
+  } else {
     process.exit(0);
-  });
+  }
 });
 
 process.on('SIGTERM', () => {
   console.log('\n🛑 서버 종료 중...');
-  server.close(() => {
-    console.log('✅ 서버가 정상적으로 종료되었습니다.');
+  if (server) {
+    server.close(() => {
+      console.log('✅ 서버가 정상적으로 종료되었습니다.');
+      process.exit(0);
+    });
+  } else {
     process.exit(0);
-  });
+  }
 });
 
 // 예외 처리
@@ -243,8 +273,22 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1);
 });
 
-// 서버 초기화 시작
-init().catch(error => {
-  console.error('❌ 서버 초기화 실패:', error);
-  process.exit(1);
-});
+// 서버 시작 및 초기화
+async function main() {
+  try {
+    // 1. 서버 시작
+    await startServer();
+    
+    // 2. 서버 초기화
+    await init();
+    
+    console.log('🎉 서버가 성공적으로 시작되었습니다!');
+    
+  } catch (error) {
+    console.error('❌ 서버 시작 실패:', error);
+    process.exit(1);
+  }
+}
+
+// 메인 함수 실행
+main();

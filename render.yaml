@@ -22,3 +22,6 @@ services:
         value: 45000
       - key: BOOT_DELAY_MS
         value: 0
+    # 추가 안정성 설정
+    numInstances: 1
+    autoDeploy: true
