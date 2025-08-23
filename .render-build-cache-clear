@@ -1,34 +1,31 @@
-# Render Build Cache Clear - v1.0.31
-# Render 502/503 하드닝: 근본적 문제 해결 및 안정성 대폭 향상
-# 2024-12-19 17:00:00
+# Render Build Cache Clear - v1.0.33
+# Docker 빌드 최적화: npm lock 동기화 및 multistage 빌드 구현
+# 2024-12-19 17:30:00
 
-Render에서 발생하는 502/503 오류를 근본적으로 해결했습니다:
+Docker 빌드 중 발생하는 npm lock 파일 동기화 문제를 근본적으로 해결했습니다:
 
-1. 서버 하드닝:
-   - $PORT + 0.0.0.0 즉시 리슨 (Render 포트 감지 통과)
-   - /healthz (항상 200)와 /readyz (준비 전 503, 준비 후 200) 분리
-   - 전역 레디니스 게이트로 준비 전 일반 API 503 차단
-   - 업로드/바디 파서 한도 확대 (25MB)
-   - multipart/form-data 완전 지원
+1. 의존성 정리:
+   - package.json에서 정확한 버전 고정 (범위 대신 고정 버전)
+   - multer 2.0.1로 업그레이드 (보안 취약점 해결)
+   - 필수 패키지만 포함하여 빌드 크기 최적화
 
-2. 과부하 방지:
-   - remove-bg 동시성 제한 큐 (CONCURRENCY=1)
-   - 처리 타임아웃 설정 (45초)
-   - 메모리 보호 및 크래시 방지
-   - 429/503 재시도 힌트 제공
+2. lock 파일 동기화:
+   - 기존 node_modules와 package-lock.json 삭제
+   - npm install --package-lock-only로 lock 재생성
+   - npm ci로 검증 완료
 
-3. 안정성 향상:
-   - Node 서버 타임아웃/Keep-Alive 보정
-   - 예외/거부 핸들링 (크래시 루프 방지)
-   - 로깅 및 모니터링 강화
-   - 자동 검증 스크립트 (selftest.mjs)
+3. Dockerfile 최신화:
+   - multistage 빌드 패턴 적용
+   - deps stage에서 lock 기반 설치
+   - --omit=dev 플래그 사용 (구식 --only=production 제거)
+   - 캐시 최적화 및 빌드 속도 향상
 
-4. 클라이언트 개선:
-   - 502/네트워크 에러도 "준비 전"으로 간주하여 재시도
-   - 지수 백오프 최적화 (60초 대기)
-   - 더 친화적인 에러 메시지
+4. CI 최적화:
+   - .npmrc 파일 추가 (fund=false, audit=false, progress=false)
+   - 불필요한 경고 및 출력 제거
+   - 빌드 재현성 보장
 
-5. 배포 최적화:
-   - render.yaml 표준화
-   - 환경변수 설정 최적화
-   - 헬스체크 경로 표준화 (/healthz)
+5. 검증 완료:
+   - npm ci 로컬 실행 성공
+   - package-lock.json 동기화 완료
+   - 의존성 버전 고정으로 빌드 안정성 향상
