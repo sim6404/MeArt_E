@@ -1,20 +1,33 @@
 {
-  "name": "meart",
-  "version": "1.0.29",
+  "name": "render-ready-web",
+  "private": true,
+  "type": "commonjs",
+  "version": "1.0.31",
   "description": "AI-based emotion art generator with brush effects",
   "main": "server.js",
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
-  },
   "scripts": {
     "build": "echo skip",
     "start": "node server.js",
     "dev": "node server.js",
-    "wait:ready": "node scripts/wait-ready.js",
-    "selfcheck": "node scripts/selfcheck.mjs",
-    "test": "echo 'No tests specified'",
-    "download-model": "python3 -c \"import u2net_remove_bg; print('U2Net 모델 다운로드 완료')\" 2>/dev/null || echo '모델 다운로드는 런타임에 수행됩니다'"
+    "selftest": "node scripts/selftest.mjs"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "p-queue": "^7.4.1",
+    "morgan": "^1.10.0",
+    "compression": "^1.7.4",
+    "axios": "^1.6.0",
+    "bcrypt": "^5.1.1",
+    "firebase": "^10.14.1",
+    "firebase-admin": "^12.7.0",
+    "form-data": "^4.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "sharp": "^0.33.0"
+  },
+  "engines": { 
+    "node": ">=18" 
   },
   "keywords": [
     "ai",
@@ -29,19 +42,5 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/sim6404/MeArt_E.git"
-  },
-  "dependencies": {
-    "axios": "^1.6.0",
-    "bcrypt": "^5.1.1",
-    "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "firebase": "^10.14.1",
-    "firebase-admin": "^12.7.0",
-    "form-data": "^4.0.0",
-    "jsonwebtoken": "^9.0.2",
-    "multer": "^2.0.1",
-    "sharp": "^0.33.0"
-  },
-  "devDependencies": {},
-  "optionalDependencies": {}
+  }
 }

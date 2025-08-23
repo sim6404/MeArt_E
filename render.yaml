@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: meart
+    name: meart-e
     env: node
     plan: free
     buildCommand: npm ci && npm run build
@@ -10,6 +10,12 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: MAX_BODY
+        value: 25mb
+      - key: REMOVE_BG_CONCURRENCY
+        value: 1
+      - key: REMOVE_BG_TIMEOUT_MS
+        value: 45000
       - key: MODEL_DIR
         value: /tmp/u2net
       - key: PORT

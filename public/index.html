@@ -2565,8 +2565,8 @@
             }
         }
 
-        // 🔧 서버 준비 상태 폴링 (지수 백오프)
-        async function waitForReady({ url, maxWaitMs = 30000, baseDelay = 300, requireAI = false } = {}) {
+        // 🔧 서버 준비 상태 폴링 (지수 백오프) - 502/네트워크 에러도 "준비 전"으로 간주하여 재시도
+        async function waitForReady({ url, maxWaitMs = 60000, baseDelay = 300, requireAI = false } = {}) {
             const base = url || window.__API_BASE_URL__ || window.env?.API_BASE_URL || '';
             const target = (base ? base.replace(/\/$/, '') : '') + '/readyz';
             const start = Date.now(); 
@@ -2600,10 +2600,11 @@
                         lastErr = `status ${res.status}`;
                     }
                 } catch (e) { 
+                    // 502/네트워크 에러 → 대기 후 재시도
                     lastErr = e?.message || 'network error'; 
                 }
                 
-                const delay = Math.min(2000, baseDelay * Math.pow(2, attempt++));
+                const delay = Math.min(2500, baseDelay * Math.pow(2, attempt++));
                 const elapsed = Math.floor((Date.now() - start) / 1000);
                 
                 const statusMsg = requireAI ? 'AI 기능 초기화 중' : '서버 준비 중';
