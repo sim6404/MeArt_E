@@ -1,26 +1,28 @@
-# Render Build Cache Clear - v1.0.37
-# bcrypt 설치 문제 해결: node-pre-gyp 호환성 및 빌드 도구 추가
-# 2024-12-19 19:30:00 - Render 배포 강제 트리거
+# Render Build Cache Clear - v1.0.38
+# Python 패키지 설치 문제 해결: Alpine Linux 호환성 최적화
+# 2024-12-19 20:00:00 - Render 배포 강제 트리거
 
-bcrypt 설치 문제를 해결했습니다:
+Python 패키지 설치 문제를 해결했습니다:
 
-1. npm overrides 설정 최적화:
-   - 문제가 되는 deprecated 패키지 overrides 제거
-   - rimraf, glob만 안전하게 업데이트
-   - bcrypt와 node-pre-gyp 호환성 보장
+1. requirements.txt 최적화:
+   - 더 안정적인 패키지 버전으로 다운그레이드
+   - numpy 1.21.6, pillow 9.5.0, onnxruntime 1.15.1
+   - rembg 2.0.43, scikit-image 0.19.3, imageio 2.25.1
+   - requests 2.28.2로 안정성 향상
 
-2. Dockerfile 빌드 도구 추가:
-   - gcc, g++, make 추가 (bcrypt 네이티브 빌드용)
-   - python3-dev 추가 (Python 확장 모듈 빌드용)
-   - --build-from-source 플래그 추가
+2. Dockerfile Python 설치 방식 개선:
+   - pip, setuptools, wheel 버전 고정 (23.0.1, 67.7.2, 0.40.0)
+   - 패키지 설치를 단계별로 분리하여 오류 추적 가능
+   - 각 패키지를 개별적으로 설치하여 의존성 충돌 방지
 
-3. .npmrc 설정 개선:
-   - build-from-source=true 추가
-   - bcrypt 네이티브 모듈 빌드 지원
+3. Alpine Linux 호환성 강화:
+   - 안정적인 Python 패키지 버전 사용
+   - 가상환경 내에서 격리된 설치
+   - 단계별 설치로 문제 패키지 식별 가능
 
 4. 안정성 향상:
-   - bcrypt 설치 오류 해결
-   - node-pre-gyp 호환성 문제 해결
-   - Alpine Linux 환경에서 네이티브 모듈 빌드 지원
+   - Python 패키지 설치 오류 해결
+   - Alpine Linux 환경 최적화
+   - 빌드 재현성 및 안정성 보장
 
-이제 Render에서 bcrypt 설치 오류 없이 안정적인 빌드가 가능합니다!
+이제 Render에서 Python 패키지 설치 오류 없이 안정적인 빌드가 가능합니다!
