@@ -1,6 +1,5 @@
-# 안정적인 Python 패키지 (Alpine Linux 호환) - 최소 의존성
-pillow==9.5.0
-numpy==1.21.6
+# 필수 Python 패키지 (pip로 설치) - 시스템 패키지로 설치되지 않는 것들만
+# numpy, pillow, requests는 Alpine Linux 시스템 패키지로 설치됨
 
 # ONNX 모델 추론 (감정 분석용) - Alpine Linux 호환 버전
 onnxruntime==1.15.1
@@ -11,6 +10,3 @@ rembg==2.0.43
 # 이미지 처리 및 필터 효과
 scikit-image==0.19.3
 imageio==2.25.1
-
-# 기타 의존성
-requests==2.28.2
