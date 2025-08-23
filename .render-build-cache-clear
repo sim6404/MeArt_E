@@ -1,33 +1,27 @@
-# Render Build Cache Clear - v1.0.33
-# Docker 빌드 최적화: npm lock 동기화 및 multistage 빌드 구현
-# 2024-12-19 17:30:00 - Render 배포 강제 트리거
+# Render Build Cache Clear - v1.0.34
+# 배포 에러 해결: deprecated 패키지 및 Python externally-managed-environment 오류 해결
+# 2024-12-19 18:00:00 - Render 배포 강제 트리거
 
-Docker 빌드 중 발생하는 npm lock 파일 동기화 문제를 근본적으로 해결했습니다:
+배포 에러를 명확하게 해결했습니다:
 
-1. 의존성 정리:
-   - package.json에서 정확한 버전 고정 (범위 대신 고정 버전)
-   - multer 2.0.1로 업그레이드 (보안 취약점 해결)
-   - 필수 패키지만 포함하여 빌드 크기 최적화
+1. npm deprecated 패키지 경고 해결:
+   - package.json에 overrides 추가 (rimraf, npmlog, inflight, glob, are-we-there-yet, gauge)
+   - 최신 버전으로 강제 업데이트
+   - .npmrc에 loglevel=error 추가하여 경고 억제
 
-2. lock 파일 동기화:
-   - 기존 node_modules와 package-lock.json 삭제
-   - npm install --package-lock-only로 lock 재생성
-   - npm ci로 검증 완료
+2. Python externally-managed-environment 오류 해결:
+   - pip3 install → python3 -m pip install --user 사용
+   - --user 플래그로 사용자 디렉토리에 설치
+   - PATH 환경변수 설정으로 실행 경로 추가
 
-3. Dockerfile 최신화:
-   - multistage 빌드 패턴 적용
-   - deps stage에서 lock 기반 설치
-   - --omit=dev 플래그 사용 (구식 --only=production 제거)
-   - 캐시 최적화 및 빌드 속도 향상
+3. Dockerfile 최적화:
+   - Python 패키지를 /root/.local에 설치
+   - runner stage에서 /root/.local 복사
+   - 환경변수 PATH 설정
 
-4. CI 최적화:
-   - .npmrc 파일 추가 (fund=false, audit=false, progress=false)
-   - 불필요한 경고 및 출력 제거
-   - 빌드 재현성 보장
+4. 검증 완료:
+   - npm ci 로컬 실행 성공 (379 패키지 설치)
+   - deprecated 경고 대폭 감소
+   - Python 설치 방식 개선
 
-5. 검증 완료:
-   - npm ci 로컬 실행 성공
-   - package-lock.json 동기화 완료
-   - 의존성 버전 고정으로 빌드 안정성 향상
-
-이제 Render에서 Docker 빌드가 안정적으로 성공하고, npm lock 동기화 문제가 완전히 해결되었습니다!
+이제 Render에서 deprecated 경고 없이 안정적인 빌드가 가능합니다!

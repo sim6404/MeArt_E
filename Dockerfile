@@ -20,10 +20,10 @@ RUN test -f package-lock.json
 # npm ci로 의존성 설치 (최신 플래그 사용)
 RUN npm ci --omit=dev --no-audit --no-fund
 
-# Python 의존성 설치
+# Python 의존성 설치 (externally-managed-environment 오류 해결)
 COPY requirements.txt ./
-RUN pip3 install --no-cache-dir --upgrade pip
-RUN pip3 install --no-cache-dir --root-user-action=ignore -r requirements.txt
+RUN python3 -m pip install --user --upgrade pip
+RUN python3 -m pip install --user --no-cache-dir --root-user-action=ignore -r requirements.txt
 
 # ---- runner stage ----
 FROM node:20-alpine AS runner
@@ -39,12 +39,14 @@ RUN apk add --no-cache \
 # 환경변수 설정
 ENV NODE_ENV=production
 ENV MODEL_DIR=/tmp/u2net
+ENV PATH="/root/.local/bin:$PATH"
 
 # U2Net 모델 디렉토리 생성
 RUN mkdir -p /tmp/u2net && chmod 755 /tmp/u2net
 
 # 의존성 복사
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /root/.local /root/.local
 COPY --from=deps /usr/lib/python3* /usr/lib/
 COPY --from=deps /usr/local/lib/python3* /usr/local/lib/
 
