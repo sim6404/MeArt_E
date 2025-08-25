@@ -27,7 +27,7 @@ app.use(express.static('public'));
 
 let isReady = false;
 
-// 헬스/레디니스
+// 헬스/레디니스 (항상 응답)
 app.get('/healthz', (req, res) => {
   res.set('Cache-Control', 'no-store');
   res.status(200).json({ 
@@ -35,7 +35,8 @@ app.get('/healthz', (req, res) => {
     ts: new Date().toISOString(),
     uptime: process.uptime(),
     port: PORT,
-    host: HOST
+    host: HOST,
+    ready: isReady
   });
 });
 
@@ -163,28 +164,67 @@ app.use((error, req, res, next) => {
   });
 });
 
-const server = app.listen(PORT, HOST, () => {
-  console.log(`listening on http://${HOST}:${PORT}`);
-  init();
-});
+// 서버 시작 (동기적으로)
+let server = null;
 
-// Render 런타임 권장: keep-alive/headers 타임아웃 증가
-server.keepAliveTimeout = 120000;
-server.headersTimeout = 121000;
-
-async function init() {
-  try {
-    // 의존성 초기화(DB/캐시/시크릿 등)
-    if (process.env.BOOT_DELAY_MS) await new Promise(r => setTimeout(r, Number(process.env.BOOT_DELAY_MS)));
+try {
+  server = app.listen(PORT, HOST, () => {
+    console.log(`listening on http://${HOST}:${PORT}`);
+    console.log(`environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`port: ${PORT}, host: ${HOST}`);
+    
+    // 즉시 준비 완료 (비동기 초기화 제거)
     isReady = true;
     console.log('SERVER_READY');
-  } catch (e) {
-    console.error('INIT_FAILED', e);
-    process.exit(1); // Start Command 실패를 명확히
-  }
+  });
+
+  // Render 런타임 권장: keep-alive/headers 타임아웃 증가
+  server.keepAliveTimeout = 120000;
+  server.headersTimeout = 121000;
+
+  // 서버 오류 처리
+  server.on('error', (error) => {
+    console.error('❌ 서버 시작 오류:', error);
+    process.exit(1);
+  });
+
+} catch (error) {
+  console.error('❌ 서버 생성 오류:', error);
+  process.exit(1);
 }
 
-process.on('uncaughtException', e => { console.error('uncaughtException', e); });
-process.on('unhandledRejection', e => { console.error('unhandledRejection', e); });
-process.on('SIGINT', () => server.close(() => process.exit(0)));
-process.on('SIGTERM', () => server.close(() => process.exit(0)));
+// 프로세스 종료 핸들러
+process.on('SIGINT', () => {
+  console.log('\n🛑 서버 종료 중...');
+  if (server) {
+    server.close(() => {
+      console.log('✅ 서버가 정상적으로 종료되었습니다.');
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
+});
+
+process.on('SIGTERM', () => {
+  console.log('\n🛑 서버 종료 중...');
+  if (server) {
+    server.close(() => {
+      console.log('✅ 서버가 정상적으로 종료되었습니다.');
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
+});
+
+// 예외 처리
+process.on('uncaughtException', (error) => {
+  console.error('❌ 처리되지 않은 예외:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ 처리되지 않은 Promise 거부:', reason);
+  process.exit(1);
+});

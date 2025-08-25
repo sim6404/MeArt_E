@@ -1,7 +1,7 @@
 services:
   - type: web
     name: meart-e
-    env: node
+    env: docker
     plan: starter
     region: singapore
     repo: https://github.com/sim6404/MeArt_E
