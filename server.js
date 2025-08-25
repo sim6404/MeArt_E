@@ -1,3 +1,4 @@
+// server.js — Render 배포 하드닝
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
@@ -7,66 +8,59 @@ const Queue = require('p-queue');
 const compression = require('compression');
 const morgan = require('morgan');
 
-// 환경변수 설정
-const PORT = Number(process.env.PORT || 10000);
+const PORT = Number(process.env.PORT || 10000); // Render 기본 10000
 const HOST = '0.0.0.0';
-const MAX_BODY = process.env.MAX_BODY || '50mb';
+const MAX_BODY = process.env.MAX_BODY || '25mb';
 const CONCURRENCY = Number(process.env.REMOVE_BG_CONCURRENCY || 1);
 const JOB_TIMEOUT_MS = Number(process.env.REMOVE_BG_TIMEOUT_MS || 45000);
 
-// 서버 준비 상태
-let isReady = false;
-
-// 이미지 처리 큐
-const imageQueue = new Queue({ concurrency: CONCURRENCY });
-
 const app = express();
-
-// 미들웨어 설정
+app.set('trust proxy', true);
 app.use(morgan('combined'));
 app.use(compression());
+app.use(cors());
 app.use(express.json({ limit: MAX_BODY }));
 app.use(express.urlencoded({ extended: true, limit: MAX_BODY }));
-app.use(cors());
 
 // 정적 파일 서빙
 app.use(express.static('public'));
 
-// 헬스체크 엔드포인트 (항상 200)
+let isReady = false;
+
+// 헬스/레디니스
 app.get('/healthz', (req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
+  res.status(200).json({ 
+    ok: true, 
+    ts: new Date().toISOString(),
     uptime: process.uptime(),
     port: PORT,
-    host: HOST,
-    ready: isReady
+    host: HOST
   });
 });
 
-// 준비상태 체크 엔드포인트
 app.get('/readyz', (req, res) => {
   res.set('Cache-Control', 'no-store');
-  if (isReady) {
-    res.status(200).json({
-      status: 'ready',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      port: PORT,
-      host: HOST,
-      ready: true
-    });
-  } else {
-    res.status(503).json({
-      status: 'not_ready',
-      message: '서버가 아직 초기화 중입니다.',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      ready: false
-    });
-  }
+  return res.status(isReady ? 200 : 503).json({ 
+    ready: !!isReady, 
+    ts: Date.now(),
+    uptime: process.uptime()
+  });
 });
+
+// 준비 전 게이트(health/ready/정적/HEAD/OPTIONS 허용)
+const allow = new Set(['/healthz','/readyz','/favicon.ico']);
+app.use((req, res, next) => {
+  if (allow.has(req.path) || req.method==='HEAD' || req.method==='OPTIONS' || req.path.startsWith('/static/')) return next();
+  if (!isReady) return res.status(503).json({ error: 'server not ready' });
+  next();
+});
+
+// 샘플 API
+app.get('/api/ping', (_req, res) => res.json({ pong: true }));
+
+// 이미지 처리 큐
+const imageQueue = new Queue({ concurrency: CONCURRENCY });
 
 // 이미지 업로드 설정
 const upload = multer({
@@ -169,45 +163,28 @@ app.use((error, req, res, next) => {
   });
 });
 
-// 서버 시작
 const server = app.listen(PORT, HOST, () => {
-  console.log(`🚀 서버가 ${HOST}:${PORT}에서 시작되었습니다.`);
-  console.log(`📊 환경: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔧 설정: MAX_BODY=${MAX_BODY}, CONCURRENCY=${CONCURRENCY}, TIMEOUT=${JOB_TIMEOUT_MS}ms`);
-  
-  // 서버 준비 완료
-  isReady = true;
-  console.log('✅ 서버가 준비되었습니다!');
+  console.log(`listening on http://${HOST}:${PORT}`);
+  init();
 });
 
-// 서버 설정
-server.keepAliveTimeout = 65000;
-server.headersTimeout = 66000;
+// Render 런타임 권장: keep-alive/headers 타임아웃 증가
+server.keepAliveTimeout = 120000;
+server.headersTimeout = 121000;
 
-// 프로세스 종료 핸들러
-process.on('SIGINT', () => {
-  console.log('\n🛑 서버 종료 중...');
-  server.close(() => {
-    console.log('✅ 서버가 정상적으로 종료되었습니다.');
-    process.exit(0);
-  });
-});
+async function init() {
+  try {
+    // 의존성 초기화(DB/캐시/시크릿 등)
+    if (process.env.BOOT_DELAY_MS) await new Promise(r => setTimeout(r, Number(process.env.BOOT_DELAY_MS)));
+    isReady = true;
+    console.log('SERVER_READY');
+  } catch (e) {
+    console.error('INIT_FAILED', e);
+    process.exit(1); // Start Command 실패를 명확히
+  }
+}
 
-process.on('SIGTERM', () => {
-  console.log('\n🛑 서버 종료 중...');
-  server.close(() => {
-    console.log('✅ 서버가 정상적으로 종료되었습니다.');
-    process.exit(0);
-  });
-});
-
-// 예외 처리
-process.on('uncaughtException', (error) => {
-  console.error('❌ 처리되지 않은 예외:', error);
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ 처리되지 않은 Promise 거부:', reason);
-  process.exit(1);
-});
+process.on('uncaughtException', e => { console.error('uncaughtException', e); });
+process.on('unhandledRejection', e => { console.error('unhandledRejection', e); });
+process.on('SIGINT', () => server.close(() => process.exit(0)));
+process.on('SIGTERM', () => server.close(() => process.exit(0)));

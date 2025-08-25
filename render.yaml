@@ -1,7 +1,7 @@
 services:
   - type: web
     name: meart-e
-    env: docker
+    env: node
     plan: starter
     region: singapore
     repo: https://github.com/sim6404/MeArt_E
@@ -15,7 +15,7 @@ services:
       - key: PORT
         value: 10000
       - key: MAX_BODY
-        value: 50mb
+        value: 25mb
       - key: REMOVE_BG_CONCURRENCY
         value: 1
       - key: REMOVE_BG_TIMEOUT_MS
