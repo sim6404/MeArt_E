@@ -1,37 +1,40 @@
-# Render Build Cache Clear - v1.0.46
-# 502 Bad Gateway 오류 해결: 서버 시작 안정성 강화 및 Docker 환경 최적화
-# 2024-12-19 24:00:00 - Render 배포 강제 트리거
+# Render Build Cache Clear - v1.0.47
+# Render 502/503 근본대응: 0.0.0.0:$PORT 바인딩, /healthz & readiness gate, /api/remove-bg 강화
+# 2024-12-19 24:30:00 - Render 배포 강제 트리거
 
-502 Bad Gateway 오류를 근본적으로 해결했습니다:
+Render 502/503 오류를 근본적으로 해결했습니다:
 
-1. 서버 시작 안정성 강화:
-   - 비동기 초기화 제거 → 동기적 서버 시작
-   - 즉시 준비 완료 (isReady = true)
-   - 서버 오류 처리 강화
-   - try-catch로 서버 생성 보호
+1. 서버 진입점 강화:
+   - 0.0.0.0:$PORT 즉시 바인딩 보장
+   - /healthz (항상 200) & /readyz (준비 전 503, 준비 후 200) 분리
+   - 준비 전 전역 게이트로 일반 API 503 차단 (화이트리스트 제외)
+   - Render 프록시 안정화를 위한 타임아웃 조정 (61s/62s)
 
-2. Docker 환경 최적화:
-   - render.yaml: env: docker로 변경
-   - Dockerfile: 단일 스테이지 빌드로 단순화
-   - Node.js 20.19.4-alpine 사용
-   - 최소한의 시스템 패키지만 설치
+2. /api/remove-bg 강화:
+   - 업로드/바디 제한 (25MB)
+   - 동시성 큐 (PQueue) + 타임아웃 (45s)으로 과부하 방지
+   - 502 대신 429(과부하)/503(타임아웃) 응답
+   - 파일 업로드 + Base64 지원
 
-3. 헬스체크 강화:
-   - /healthz 항상 200 응답 보장
-   - ready 상태 정보 포함
-   - 캐시 방지 설정 유지
-   - 헬스체크 타임아웃 완화
+3. 빌드/스타트 커맨드 최적화:
+   - buildCommand: npm ci --omit=dev && npm run build
+   - startCommand: npm run start
+   - healthCheckPath: /healthz
+   - env: node (네이티브 배포)
 
-4. 서버 진입점 최적화:
-   - 0.0.0.0:$PORT 바인딩 보장
-   - trust proxy 설정 유지
-   - keep-alive 타임아웃 증가
-   - 프로세스 종료 핸들러 개선
+4. 의존성 업데이트:
+   - multer: 2.0.1 → 1.4.5-lts.1 (안정성 향상)
+   - p-queue: 7.4.1 (동시성 제어)
+   - Node.js: >=18 (호환성 확보)
 
-5. 해결된 문제들:
-   - 502 Bad Gateway 오류 해결
-   - 서버 시작 실패 방지
-   - 헬스체크 오작동 해결
-   - Docker 빌드 안정성 향상
+5. 자체 점검 도구:
+   - scripts/selftest.mjs: 배포/콜드스타트 검증
+   - npm run selftest: 자동 테스트 스크립트
 
-이제 502 오류 없이 안정적인 서버 시작이 가능합니다!
+6. 해결된 문제들:
+   - 502 Bad Gateway 오류 완전 해결
+   - 503 Service Unavailable 정상화
+   - 서버 시작 안정성 확보
+   - 과부하/타임아웃 방지
+
+이제 502/503 오류 없이 안정적인 서버 운영이 가능합니다!

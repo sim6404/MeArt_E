@@ -2,26 +2,26 @@
   "name": "render-ready-web",
   "private": true,
   "type": "commonjs",
-  "version": "1.0.46",
+  "version": "1.0.47",
   "description": "AI-based emotion art generator with brush effects",
   "main": "server.js",
   "packageManager": "npm@10",
   "scripts": {
     "lock:sync": "node scripts/lock-sync.mjs",
-    "selfcheck": "node scripts/selfcheck.mjs",
+    "selftest": "node scripts/selftest.mjs",
     "build": "echo build",
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "4.19.2",
-    "cors": "2.8.5",
-    "compression": "1.7.4",
-    "morgan": "1.10.0",
-    "multer": "2.0.1",
-    "p-queue": "7.4.1"
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "compression": "^1.7.4",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "p-queue": "^7.4.1"
   },
   "engines": { 
-    "node": ">=20.19.4" 
+    "node": ">=18" 
   },
   "keywords": [
     "ai",
