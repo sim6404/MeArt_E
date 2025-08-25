@@ -6,8 +6,8 @@ services:
     region: singapore
     repo: https://github.com/sim6404/MeArt_E
     branch: main
-    buildCommand: npm ci && npm run build
-    startCommand: npm run start
+    buildCommand: npm ci
+    startCommand: npm start
     healthCheckPath: /healthz
     envVars:
       - key: NODE_ENV
@@ -20,8 +20,3 @@ services:
         value: 1
       - key: REMOVE_BG_TIMEOUT_MS
         value: 45000
-      - key: BOOT_DELAY_MS
-        value: 0
-    # 추가 안정성 설정
-    numInstances: 1
-    autoDeploy: true
