@@ -1,53 +1,52 @@
-# Render Build Cache Clear - v1.0.48
-# status/readyz/favicon/게이트 확정 제공: 404 오류 해결 및 초기화 멈춤 방지
-# 2024-12-19 25:00:00 - Render 배포 강제 트리거
+# Render Build Cache Clear - v1.0.49
+# 404 오류와 AI 초기화 멈춤 문제 근본 해결: 상태/레디니스/게이트 확정
+# 2024-12-19 25:30:00 - Render 배포 강제 트리거
 
-404 오류와 초기화 멈춤 문제를 근본적으로 해결했습니다:
+404 오류와 AI 초기화 멈춤 문제를 근본적으로 해결했습니다:
 
-1. 서버 진입점 확정 제공:
-   - 0.0.0.0:$PORT 즉시 바인딩 보장
-   - /healthz (항상 200) & /readyz (준비 전 503, 준비 후 200) 분리
-   - /api/status (AI 기능/환경 점검 결과 제공)
-   - /favicon.ico (파일 없으면 204로 무음 처리)
-   - 준비 전 전역 게이트로 일반 API 503 차단 (화이트리스트 제외)
+1. 서버 상태/레디니스/게이트 확정:
+   - 0.0.0.0:$PORT로 즉시 listen
+   - /healthz: 항상 200 (서버 상태)
+   - /readyz: 서버 준비 전 503, 준비 후 200 (AI와 분리)
+   - /api/status: 항상 200 (AI 상태 포함) — 절대 404 금지
+   - 전역 레디니스 게이트: /healthz, /readyz, /api/status, /favicon.ico, 정적, HEAD/OPTIONS만 준비 전 통과
+   - 콘솔에 'SERVER_READY' 로그 출력
 
-2. /api/status 엔드포인트 추가:
-   - AI 기능 준비상태 표준 JSON 노출
-   - 환경변수/키/외부연결 점검 결과 제공
-   - 클라이언트 진단용 메타데이터 포함
-   - uptime, routes, ai 상태 정보
+2. AI 상태와 서버 레디니스 분리:
+   - AI 키 부재/비활성이어도 서버는 준비 완료로 간주
+   - /api/status에서 AI 상태는 정보 제공용이지 게이트 아님
+   - "AI not ready: disabled"는 정보 메시지로만 표기, 앱 부트 차단하지 않음
 
-3. favicon.ico 처리 개선:
-   - 파일 없으면 204로 무음 처리 (404 소음 제거)
-   - public/favicon.ico 있으면 정적 서빙 우선
-   - 캐시 헤더 설정으로 성능 최적화
+3. 클라이언트 상태/대기 로직 교정:
+   - checkServerStatus: /api/status 404면 백엔드 미배포/경로오류 경고
+   - waitForReady: /readyz만으로 준비여부 판단 (404/502도 재시도)
+   - AI 상태 확인은 정보 제공용, 앱 초기화는 중단되지 않음
 
-4. 클라이언트 waitForReady 강화:
-   - 404/502/네트워크 에러를 "준비 전/경로 불일치"로 진단
-   - /api/status 엔드포인트 추가 점검
-   - AI 기능 준비상태 별도 확인
-   - 상세한 오류 메시지 제공
+4. 환경변수 표준화:
+   - AI_PROVIDER=none (기본값)
+   - OPENAI_API_KEY, REPLICATE_API_TOKEN (필요시 설정)
+   - NODE_ENV=production, MAX_BODY=25mb, BOOT_DELAY_MS=0
 
-5. 빌드/스타트 커맨드 최적화:
-   - buildCommand: npm ci --omit=dev && npm run build
-   - startCommand: npm run start
-   - healthCheckPath: /healthz
-   - env: node (네이티브 배포)
-
-6. 의존성 정리:
-   - multer, p-queue 제거 (불필요한 복잡성 제거)
-   - 핵심 의존성만 유지: express, cors, compression, morgan
+5. 의존성 정리:
+   - compression 제거 (불필요한 복잡성 제거)
+   - 핵심 의존성만 유지: express, cors, morgan
    - Node.js >=18 호환성 확보
 
-7. 해결된 문제들:
+6. 해결된 문제들:
    - GET /api/status 404 (Not Found) → 200 OK
-   - GET /favicon.ico 404 (Not Found) → 204 No Content
-   - "서버 연결 확인 중 … (url=/readyz …)" 초기화 멈춤 → 정상 폴링
-   - 502 Bad Gateway → 503 Service Unavailable (정상화)
-   - 경로 불일치/리버스프록시 설정 오류 → 진단 가능
+   - waitForReady가 "AI not ready: disabled"로 초기화 멈춤 → 정보 메시지로 변경
+   - /readyz 대기 실패 → 정상 폴링
+   - AI 키 없어도 서버 준비 완료
+   - 앱 부트 차단 방지
 
-8. 자체 점검 도구:
-   - scripts/selftest.mjs: /healthz, /readyz, /api/status, /favicon.ico 검증
+7. 자체 점검 도구:
+   - scripts/selftest.mjs: /healthz, /readyz, /api/status 검증
    - npm run selftest: 배포 전 자동 테스트
 
-이제 404 오류 없이 안정적인 서버 운영이 가능합니다!
+8. Render 설정 최적화:
+   - Web Service(Node) 배포 확인
+   - healthCheckPath: /healthz
+   - Start Command: npm run start
+   - AI_PROVIDER 환경변수 설정
+
+이제 404 오류와 AI 초기화 멈춤 없이 안정적인 서버 운영이 가능합니다!

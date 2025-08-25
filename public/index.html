@@ -2565,99 +2565,73 @@
             }
         }
 
-        // 🔧 서버 준비 상태 폴링 (지수 백오프) - 404/502/네트워크 에러도 "준비 전"으로 간주하여 재시도
-        async function waitForReady({ url, maxWaitMs = 60000, baseDelay = 300, requireAI = false } = {}) {
-            const base = url || window.__API_BASE_URL__ || window.env?.API_BASE_URL || '';
+        // checkServerStatus: 항상 200을 기대, 404면 백엔드 미배포/경로오류 경고
+        async function checkServerStatus(base = '') {
+            const url = (base ? base.replace(/\/$/, '') : '') + '/api/status?t=' + Date.now();
+            try {
+                const res = await fetch(url, { cache: 'no-store' });
+                if (res.status === 404) throw new Error('status endpoint missing (404)');
+                if (!res.ok) throw new Error('status ' + res.status);
+                const json = await res.json();
+                // AI 비활성은 정보 수준
+                if (json?.ai && !json.ai.ready) {
+                    console.info(`AI not ready: ${json.ai.reason} (provider=${json.ai.provider})`);
+                }
+                return json;
+            } catch (e) {
+                console.warn('checkServerStatus warning:', e.message);
+                return null; // 앱 부트는 계속
+            }
+        }
+
+        // waitForReady: /readyz만으로 준비여부 판단(404/502도 재시도)
+        async function waitForReady({ base = '', maxWaitMs = 60000, baseDelay = 300 } = {}) {
             const target = (base ? base.replace(/\/$/, '') : '') + '/readyz';
             const start = Date.now(); 
             let attempt = 0; 
-            let lastErr = '';
+            let last = '';
             
-            console.log('🔄 서버 준비 상태 확인 시작:', target, requireAI ? '(AI 기능 필요)' : '(기본 기능만)');
+            console.log('🔄 서버 준비 상태 확인 시작:', target);
             
             while (Date.now() - start < maxWaitMs) {
                 try {
-                    const res = await fetch(`${target}?t=${Date.now()}`, { 
-                        cache: 'no-store', 
-                        credentials: 'include' 
-                    });
-                    
+                    const res = await fetch(`${target}?t=${Date.now()}`, { cache: 'no-store' });
                     if (res.status === 200) {
-                        const data = await res.json();
-                        if (data.ready === true) {
-                            // AI 기능이 필요한 경우 /api/status로 추가 확인
-                            if (requireAI) {
-                                try {
-                                    const statusRes = await fetch((base ? base.replace(/\/$/, '') : '') + '/api/status?t=' + Date.now(), { 
-                                        cache: 'no-store' 
-                                    });
-                                    if (statusRes.status === 200) {
-                                        const statusData = await statusRes.json();
-                                        if (statusData.ai && statusData.ai.ready) {
-                                            console.log('✅ 서버가 준비되었습니다! (AI 기능 포함)');
-                                            return true;
-                                        } else {
-                                            lastErr = `AI not ready: ${statusData.ai?.reason || 'unknown'}`;
-                                        }
-                                    } else {
-                                        lastErr = `status endpoint ${statusRes.status}`;
-                                    }
-                                } catch (e) {
-                                    lastErr = `status check failed: ${e?.message || 'unknown'}`;
-                                }
-                            } else {
-                                console.log('✅ 서버가 준비되었습니다! (기본 기능)');
-                                return true;
-                            }
-                        } else {
-                            lastErr = `ready: ${data.ready}`;
-                        }
-                    } else {
-                        lastErr = `status ${res.status}`;
-                        // 404면 경로/리버스프록시 설정 오류 가능 → /api/status도 함께 점검
-                        if (res.status === 404) {
-                            try {
-                                const st = await fetch((base ? base.replace(/\/$/, '') : '') + '/api/status?t=' + Date.now(), { 
-                                    cache: 'no-store' 
-                                });
-                                lastErr += `; statusEndpoint=${st.status}`;
-                            } catch (e) {
-                                lastErr += `; statusCheckFailed`;
-                            }
-                        }
+                        console.log('✅ 서버가 준비되었습니다!');
+                        return true;
                     }
+                    last = `status ${res.status}`;
                 } catch (e) { 
-                    // 502/네트워크 에러 → 대기 후 재시도
-                    lastErr = e?.message || 'network error'; 
+                    last = e?.message || 'network error'; 
                 }
                 
                 const delay = Math.min(2500, baseDelay * Math.pow(2, attempt++));
                 const elapsed = Math.floor((Date.now() - start) / 1000);
                 
-                const statusMsg = requireAI ? 'AI 기능 초기화 중' : '서버 준비 중';
-                console.log(`⏳ ${statusMsg}... (${attempt}회, ${elapsed}초 경과, ${lastErr})`);
-                showMessage(`${statusMsg}. ${elapsed}초 경과...`, 'info');
+                console.log(`⏳ 서버 준비 중... (${attempt}회, ${elapsed}초 경과, ${last})`);
+                showMessage(`서버 준비 중. ${elapsed}초 경과...`, 'info');
                 
                 await new Promise(r => setTimeout(r, delay));
             }
             
-            const errorMsg = `서버 연결 확인 중: 일정 시간 내에 응답하지 않았습니다. (url=${target}, 마지막 오류=${lastErr})`;
-            console.error(errorMsg);
-            showMessage('서버에 연결 중입니다. 잠시 후 다시 시도해주세요.', 'info');
-            return false;
+            throw new Error(`서버 연결 확인 중: 일정 시간 내 응답 없음 (url=/readyz, last=${last})`);
         }
 
         async function removeBackgroundInternal() {
             try {
-                // 🔧 서버 준비 상태 먼저 확인 (AI 기능 필요)
+                // 🔧 서버 준비 상태 먼저 확인
                 console.log('🔍 서버 준비 상태 확인 중...');
-                const isServerReady = await waitForReady({ maxWaitMs: 30000, requireAI: true });
+                const isServerReady = await waitForReady({ maxWaitMs: 30000 });
                 
                 if (!isServerReady) {
                     console.log('❌ 서버가 준비되지 않았습니다.');
-                    showMessage('AI 기능이 초기화 중입니다. 잠시 후 다시 시도해주세요.', 'info');
+                    showMessage('서버가 초기화 중입니다. 잠시 후 다시 시도해주세요.', 'info');
                     return false;
                 }
+                
+                // AI 상태 확인 (정보 제공용, 앱 부트는 차단하지 않음)
+                const base = window.location.hostname === 'localhost' ? '' : 'https://meart-e.onrender.com';
+                await checkServerStatus(base);
                 
                 console.log('✅ 서버 준비 확인 완료, API 호출 시작');
                 
