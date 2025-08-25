@@ -1,52 +1,59 @@
-# Render Build Cache Clear - v1.0.49
-# 404 오류와 AI 초기화 멈춤 문제 근본 해결: 상태/레디니스/게이트 확정
-# 2024-12-19 25:30:00 - Render 배포 강제 트리거
+# Render Build Cache Clear - v1.0.50
+# 정확한 라우트 제공과 404 오류 근본 해결: POST /api/remove-bg 구현 및 JSON 응답 통일
+# 2024-12-19 26:00:00 - Render 배포 강제 트리거
 
-404 오류와 AI 초기화 멈춤 문제를 근본적으로 해결했습니다:
+정확한 라우트 제공과 404 오류를 근본적으로 해결했습니다:
 
-1. 서버 상태/레디니스/게이트 확정:
+1. 백엔드 정확한 라우트 구현:
+   - POST /api/remove-bg 라우트 명시적 구현
+   - router('/api') 아래에 '/remove-bg' 마운트
+   - multer를 통한 파일 업로드 처리
+   - Base64 이미지 지원
+   - GET 요청은 405 Method Not Allowed로 거절
+
+2. 모든 에러/미존재 라우트 JSON 응답 통일:
+   - 404 Not Found → JSON 응답 (HTML 금지)
+   - 공통 에러 핸들러 → JSON 응답 (HTML 금지)
+   - "Unexpected token '<'" 오류 완전 제거
+   - 프런트엔드 JSON 파싱 실패 방지
+
+3. 서버 상태/레디니스/게이트 정비:
    - 0.0.0.0:$PORT로 즉시 listen
-   - /healthz: 항상 200 (서버 상태)
-   - /readyz: 서버 준비 전 503, 준비 후 200 (AI와 분리)
-   - /api/status: 항상 200 (AI 상태 포함) — 절대 404 금지
-   - 전역 레디니스 게이트: /healthz, /readyz, /api/status, /favicon.ico, 정적, HEAD/OPTIONS만 준비 전 통과
-   - 콘솔에 'SERVER_READY' 로그 출력
+   - /healthz (항상 200), /readyz (503/200), /api/status (항상 200)
+   - 준비 전 전역 게이트로 일반 API 503 차단
+   - 화이트리스트: /healthz, /readyz, /api/status, /favicon.ico
 
-2. AI 상태와 서버 레디니스 분리:
-   - AI 키 부재/비활성이어도 서버는 준비 완료로 간주
-   - /api/status에서 AI 상태는 정보 제공용이지 게이트 아님
-   - "AI not ready: disabled"는 정보 메시지로만 표기, 앱 부트 차단하지 않음
+4. 라우트 테이블 진단 기능:
+   - 부팅 시 [routes] 목록 출력
+   - POST /api/remove-bg 라우트 확인 가능
+   - npm run routes: 라우트 실시간 점검
 
-3. 클라이언트 상태/대기 로직 교정:
-   - checkServerStatus: /api/status 404면 백엔드 미배포/경로오류 경고
-   - waitForReady: /readyz만으로 준비여부 판단 (404/502도 재시도)
-   - AI 상태 확인은 정보 제공용, 앱 초기화는 중단되지 않음
+5. 클라이언트 호출부 강화:
+   - 비-JSON 응답 시 텍스트로 에러 표시
+   - 상세한 오류 메시지 제공
+   - JSON 파싱 실패 시 명확한 진단
 
-4. 환경변수 표준화:
-   - AI_PROVIDER=none (기본값)
-   - OPENAI_API_KEY, REPLICATE_API_TOKEN (필요시 설정)
-   - NODE_ENV=production, MAX_BODY=25mb, BOOT_DELAY_MS=0
-
-5. 의존성 정리:
-   - compression 제거 (불필요한 복잡성 제거)
-   - 핵심 의존성만 유지: express, cors, morgan
+6. 의존성 추가:
+   - multer: 파일 업로드 처리
+   - compression: 응답 압축
    - Node.js >=18 호환성 확보
 
-6. 해결된 문제들:
-   - GET /api/status 404 (Not Found) → 200 OK
-   - waitForReady가 "AI not ready: disabled"로 초기화 멈춤 → 정보 메시지로 변경
-   - /readyz 대기 실패 → 정상 폴링
-   - AI 키 없어도 서버 준비 완료
-   - 앱 부트 차단 방지
+7. 해결된 문제들:
+   - POST /api/remove-bg 404 → 200 OK
+   - "Unexpected token '<'" → JSON 응답으로 해결
+   - 라우트 미구현/오타 → 정확한 라우트 구현
+   - router prefix 불일치 → /api 마운트 확인
+   - 마운트 순서 문제 → 게이트/정적/404 순서 정리
 
-7. 자체 점검 도구:
-   - scripts/selftest.mjs: /healthz, /readyz, /api/status 검증
+8. 자체 점검 도구:
+   - scripts/selftest.mjs: POST /api/remove-bg 테스트 포함
+   - scripts/route-map.mjs: 라우트 실시간 점검
    - npm run selftest: 배포 전 자동 테스트
 
-8. Render 설정 최적화:
+9. Render 설정 최적화:
    - Web Service(Node) 배포 확인
    - healthCheckPath: /healthz
    - Start Command: npm run start
-   - AI_PROVIDER 환경변수 설정
+   - 0.0.0.0:$PORT 리슨 보장
 
-이제 404 오류와 AI 초기화 멈춤 없이 안정적인 서버 운영이 가능합니다!
+이제 정확한 라우트와 JSON 응답으로 안정적인 서버 운영이 가능합니다!

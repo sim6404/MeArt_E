@@ -2656,11 +2656,21 @@
                     type: currentFile.type
                 });
                 
+                // 비-JSON 응답이면 텍스트로 에러 표시
                 const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers,
                     body: formData
                 });
+                
+                const text = await response.text();
+                try {
+                    const json = JSON.parse(text);
+                    if (!response.ok) throw new Error(json?.error || `remove-bg ${response.status}`);
+                    return json;
+                } catch {
+                    throw new Error(`remove-bg non-JSON (${response.status}): ${text.slice(0,200)}`);
+                }
 
                 // 🔧 응답 상태 상세 로깅
                 console.log('🔎 remove-bg 응답 상태 코드:', response.status);
