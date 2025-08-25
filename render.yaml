@@ -12,9 +12,3 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: MAX_BODY
-        value: 25mb
-      - key: REMOVE_BG_CONCURRENCY
-        value: 1
-      - key: REMOVE_BG_TIMEOUT_MS
-        value: 45000

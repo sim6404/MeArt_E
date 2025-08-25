@@ -2565,7 +2565,7 @@
             }
         }
 
-        // 🔧 서버 준비 상태 폴링 (지수 백오프) - 502/네트워크 에러도 "준비 전"으로 간주하여 재시도
+        // 🔧 서버 준비 상태 폴링 (지수 백오프) - 404/502/네트워크 에러도 "준비 전"으로 간주하여 재시도
         async function waitForReady({ url, maxWaitMs = 60000, baseDelay = 300, requireAI = false } = {}) {
             const base = url || window.__API_BASE_URL__ || window.env?.API_BASE_URL || '';
             const target = (base ? base.replace(/\/$/, '') : '') + '/readyz';
@@ -2585,12 +2585,28 @@
                     if (res.status === 200) {
                         const data = await res.json();
                         if (data.ready === true) {
-                            // AI 기능이 필요한 경우 추가 확인
-                            if (requireAI && !data.aiFeaturesReady) {
-                                lastErr = `AI 기능 준비 중 (${data.aiFeaturesReady})`;
-                                console.log('⏳ AI 기능 초기화 대기 중...');
+                            // AI 기능이 필요한 경우 /api/status로 추가 확인
+                            if (requireAI) {
+                                try {
+                                    const statusRes = await fetch((base ? base.replace(/\/$/, '') : '') + '/api/status?t=' + Date.now(), { 
+                                        cache: 'no-store' 
+                                    });
+                                    if (statusRes.status === 200) {
+                                        const statusData = await statusRes.json();
+                                        if (statusData.ai && statusData.ai.ready) {
+                                            console.log('✅ 서버가 준비되었습니다! (AI 기능 포함)');
+                                            return true;
+                                        } else {
+                                            lastErr = `AI not ready: ${statusData.ai?.reason || 'unknown'}`;
+                                        }
+                                    } else {
+                                        lastErr = `status endpoint ${statusRes.status}`;
+                                    }
+                                } catch (e) {
+                                    lastErr = `status check failed: ${e?.message || 'unknown'}`;
+                                }
                             } else {
-                                console.log('✅ 서버가 준비되었습니다!', requireAI ? '(AI 기능 포함)' : '(기본 기능)');
+                                console.log('✅ 서버가 준비되었습니다! (기본 기능)');
                                 return true;
                             }
                         } else {
@@ -2598,6 +2614,17 @@
                         }
                     } else {
                         lastErr = `status ${res.status}`;
+                        // 404면 경로/리버스프록시 설정 오류 가능 → /api/status도 함께 점검
+                        if (res.status === 404) {
+                            try {
+                                const st = await fetch((base ? base.replace(/\/$/, '') : '') + '/api/status?t=' + Date.now(), { 
+                                    cache: 'no-store' 
+                                });
+                                lastErr += `; statusEndpoint=${st.status}`;
+                            } catch (e) {
+                                lastErr += `; statusCheckFailed`;
+                            }
+                        }
                     }
                 } catch (e) { 
                     // 502/네트워크 에러 → 대기 후 재시도

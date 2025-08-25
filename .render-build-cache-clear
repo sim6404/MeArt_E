@@ -1,40 +1,53 @@
-# Render Build Cache Clear - v1.0.47
-# Render 502/503 근본대응: 0.0.0.0:$PORT 바인딩, /healthz & readiness gate, /api/remove-bg 강화
-# 2024-12-19 24:30:00 - Render 배포 강제 트리거
+# Render Build Cache Clear - v1.0.48
+# status/readyz/favicon/게이트 확정 제공: 404 오류 해결 및 초기화 멈춤 방지
+# 2024-12-19 25:00:00 - Render 배포 강제 트리거
 
-Render 502/503 오류를 근본적으로 해결했습니다:
+404 오류와 초기화 멈춤 문제를 근본적으로 해결했습니다:
 
-1. 서버 진입점 강화:
+1. 서버 진입점 확정 제공:
    - 0.0.0.0:$PORT 즉시 바인딩 보장
    - /healthz (항상 200) & /readyz (준비 전 503, 준비 후 200) 분리
+   - /api/status (AI 기능/환경 점검 결과 제공)
+   - /favicon.ico (파일 없으면 204로 무음 처리)
    - 준비 전 전역 게이트로 일반 API 503 차단 (화이트리스트 제외)
-   - Render 프록시 안정화를 위한 타임아웃 조정 (61s/62s)
 
-2. /api/remove-bg 강화:
-   - 업로드/바디 제한 (25MB)
-   - 동시성 큐 (PQueue) + 타임아웃 (45s)으로 과부하 방지
-   - 502 대신 429(과부하)/503(타임아웃) 응답
-   - 파일 업로드 + Base64 지원
+2. /api/status 엔드포인트 추가:
+   - AI 기능 준비상태 표준 JSON 노출
+   - 환경변수/키/외부연결 점검 결과 제공
+   - 클라이언트 진단용 메타데이터 포함
+   - uptime, routes, ai 상태 정보
 
-3. 빌드/스타트 커맨드 최적화:
+3. favicon.ico 처리 개선:
+   - 파일 없으면 204로 무음 처리 (404 소음 제거)
+   - public/favicon.ico 있으면 정적 서빙 우선
+   - 캐시 헤더 설정으로 성능 최적화
+
+4. 클라이언트 waitForReady 강화:
+   - 404/502/네트워크 에러를 "준비 전/경로 불일치"로 진단
+   - /api/status 엔드포인트 추가 점검
+   - AI 기능 준비상태 별도 확인
+   - 상세한 오류 메시지 제공
+
+5. 빌드/스타트 커맨드 최적화:
    - buildCommand: npm ci --omit=dev && npm run build
    - startCommand: npm run start
    - healthCheckPath: /healthz
    - env: node (네이티브 배포)
 
-4. 의존성 업데이트:
-   - multer: 2.0.1 → 1.4.5-lts.1 (안정성 향상)
-   - p-queue: 7.4.1 (동시성 제어)
-   - Node.js: >=18 (호환성 확보)
+6. 의존성 정리:
+   - multer, p-queue 제거 (불필요한 복잡성 제거)
+   - 핵심 의존성만 유지: express, cors, compression, morgan
+   - Node.js >=18 호환성 확보
 
-5. 자체 점검 도구:
-   - scripts/selftest.mjs: 배포/콜드스타트 검증
-   - npm run selftest: 자동 테스트 스크립트
+7. 해결된 문제들:
+   - GET /api/status 404 (Not Found) → 200 OK
+   - GET /favicon.ico 404 (Not Found) → 204 No Content
+   - "서버 연결 확인 중 … (url=/readyz …)" 초기화 멈춤 → 정상 폴링
+   - 502 Bad Gateway → 503 Service Unavailable (정상화)
+   - 경로 불일치/리버스프록시 설정 오류 → 진단 가능
 
-6. 해결된 문제들:
-   - 502 Bad Gateway 오류 완전 해결
-   - 503 Service Unavailable 정상화
-   - 서버 시작 안정성 확보
-   - 과부하/타임아웃 방지
+8. 자체 점검 도구:
+   - scripts/selftest.mjs: /healthz, /readyz, /api/status, /favicon.ico 검증
+   - npm run selftest: 배포 전 자동 테스트
 
-이제 502/503 오류 없이 안정적인 서버 운영이 가능합니다!
+이제 404 오류 없이 안정적인 서버 운영이 가능합니다!
