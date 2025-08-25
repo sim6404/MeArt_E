@@ -2,7 +2,7 @@
   "name": "meart-e-web",
   "private": true,
   "type": "commonjs",
-  "version": "1.0.51",
+  "version": "1.0.52",
   "description": "AI-based emotion art generator with brush effects",
   "main": "server.js",
   "packageManager": "npm@10",
@@ -10,6 +10,7 @@
     "lock:sync": "node scripts/lock-sync.mjs",
     "routes": "node scripts/route-map.mjs",
     "test-analyze": "node scripts/test-analyze.mjs",
+    "create-placeholders": "node scripts/create-placeholder-images.mjs",
     "selftest": "node scripts/selftest.mjs",
     "build": "echo build",
     "start": "node server.js"
