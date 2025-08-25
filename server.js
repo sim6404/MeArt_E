@@ -1,4 +1,4 @@
-// server.js — analyze-emotion 라우트 추가 + JSON 에러 통일 + 관대한 BG_image 리졸버
+// server.js — Railway 하드닝 + 필수 라우트 + JSON 에러 통일
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
@@ -7,15 +7,17 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const PORT = Number(process.env.PORT || 10000);
+const PORT = Number(process.env.PORT || 3000);
 const HOST = '0.0.0.0';
 const MAX_BODY = process.env.MAX_BODY || '25mb';
+const ORIGIN = process.env.ALLOWED_ORIGIN || '*'; // Railway 도메인으로 제한 가능
 
 const app = express();
 app.set('trust proxy', true);
 app.disable('x-powered-by');
+
 app.use(morgan('combined'));
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({ origin: ORIGIN === '*' ? true : ORIGIN, credentials: ORIGIN !== '*' }));
 app.use(compression());
 app.use(express.json({ limit: MAX_BODY }));
 app.use(express.urlencoded({ extended: true, limit: MAX_BODY }));
@@ -26,7 +28,7 @@ const BG_DIR = path.join(process.cwd(), 'public', 'BG_image');
 // 1) 정적 서빙 (정확 매치)
 app.use('/BG_image',
   express.static(BG_DIR, {
-    fallthrough: true,           // 정확 매치 실패 시 다음 리졸버로 위임
+    fallthrough: true,
     immutable: true,
     maxAge: '30d',
     extensions: ['jpg','jpeg','png','webp']
@@ -34,14 +36,13 @@ app.use('/BG_image',
 );
 
 // 2) 관대한 리졸버 (대소문자/구분자/특수문자 차이를 흡수)
-const cache = new Map(); // key → 실제 파일명
+const cache = new Map();
 function normKey(s) {
-  // 파일명만 받는다고 가정; 확장자 포함 처리
   const dec = decodeURIComponent(s || '');
   const i = dec.lastIndexOf('.');
   const name = i >= 0 ? dec.slice(0, i) : dec;
   const ext  = i >= 0 ? dec.slice(i+1) : '';
-  const keyBase = name.toLowerCase().replace(/[^a-z0-9]+/g, ''); // 영숫자 외 제거
+  const keyBase = name.toLowerCase().replace(/[^a-z0-9]+/g, '');
   const keyExt  = ext.toLowerCase();
   return keyBase + '.' + keyExt;
 }
@@ -63,7 +64,6 @@ function buildIndex(dir) {
 let index = buildIndex(BG_DIR);
 
 app.get('/BG_image/:file', (req, res, next) => {
-  // 정적 서빙이 실패한 경우에만 진입
   const want = req.params.file;
   const key = normKey(want);
   
@@ -71,7 +71,7 @@ app.get('/BG_image/:file', (req, res, next) => {
     const real = cache.get(key);
     const abs = path.join(BG_DIR, real);
     if (fs.existsSync(abs)) return res.sendFile(abs, { headers: { 'Cache-Control': 'public, max-age=2592000, immutable' } });
-    cache.delete(key); // 캐시가 낡았으면 제거
+    cache.delete(key);
   }
   
   if (!index.size) index = buildIndex(BG_DIR);
@@ -82,7 +82,6 @@ app.get('/BG_image/:file', (req, res, next) => {
     return res.sendFile(abs, { headers: { 'Cache-Control': 'public, max-age=2592000, immutable' } });
   }
   
-  // 근사치 탐색(확장자만 맞으면 유사 매칭)
   const [base, ext] = key.split('.');
   const candidates = [...index.entries()].filter(([k]) => k.endsWith('.' + ext));
   const similar = candidates.find(([k]) => k.includes(base.slice(0, Math.max(6, Math.floor(base.length*0.6)))));
@@ -92,19 +91,32 @@ app.get('/BG_image/:file', (req, res, next) => {
     return res.sendFile(abs, { headers: { 'Cache-Control': 'public, max-age=2592000, immutable' } }); 
   }
   
-  // 최종 404(JSON) — 브라우저 이미지 요청이면 콘솔에만 노출됨
   return res.status(404).json({ error: 'image not found', path: '/BG_image/' + want });
 });
 
 // 기존 정적 파일 서빙 (BG_image 제외)
 app.use(express.static('public', { maxAge: 0, etag: false }));
 
-let isReady = true; // 서버 준비 여부(필요 시 init 로직에서 제어)
+let isReady = false;
+
+// 헬스/레디니스/상태
 app.get('/healthz', (_req, res) => res.status(200).json({ ok: true, ts: new Date().toISOString() }));
 app.get('/readyz', (_req, res) => res.status(isReady ? 200 : 503).json({ ready: !!isReady, ts: Date.now() }));
-app.get('/api/status', (_req, res) => res.status(200).json({ ok: true, ready: isReady, routes:['/api/analyze-emotion','/api/remove-bg'] }));
+app.get('/api/status', (_req, res) => {
+  const provider = (process.env.AI_PROVIDER || 'none').toLowerCase();
+  const aiReady = provider === 'openai' ? !!process.env.OPENAI_API_KEY
+                : provider === 'replicate' ? !!process.env.REPLICATE_API_TOKEN
+                : false;
+  res.status(200).json({ 
+    ok: true, 
+    ready: isReady, 
+    ai: { provider, ready: aiReady },
+    routes: ['/api/analyze-emotion', '/api/remove-bg'],
+    env: process.env.NODE_ENV || 'development'
+  });
+});
 
-// 준비 전 게이트 (화이트리스트만 통과)
+// 준비 전 게이트(화이트리스트만 통과)
 const allow = new Set(['/healthz','/readyz','/api/status','/favicon.ico']);
 app.use((req, res, next) => {
   if (allow.has(req.path) || req.path.startsWith('/static/') || req.method==='HEAD' || req.method==='OPTIONS') return next();
@@ -112,14 +124,30 @@ app.use((req, res, next) => {
   next();
 });
 
-// ====== 핵심: 감정 분석 라우트 ======
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
-
-// 단일 핸들러(경로 alias 지원): /api/analyze-emotion, /analyze-emotion
-const analyzePaths = ['/api/analyze-emotion', '/analyze-emotion'];
-app.post(analyzePaths, upload.single('image'), async (req, res, next) => {
+// 배경제거 라우트(필수)
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+app.post('/api/remove-bg', upload.single('image'), async (req, res, next) => {
   try {
-    // 입력 정규화: file 또는 base64
+    let input = null;
+    if (req.file?.buffer) input = req.file.buffer;
+    else if (req.body?.imageBase64) {
+      const b64 = String(req.body.imageBase64).split(',').pop();
+      input = Buffer.from(b64, 'base64');
+    }
+    if (!input) return res.status(400).json({ error: 'no image provided' });
+
+    // TODO: 실제 배경제거 로직 호출(외부 API/내부 처리)
+    if (process.env.DEMO_DELAY_MS) await new Promise(r => setTimeout(r, Number(process.env.DEMO_DELAY_MS)));
+
+    return res.status(200).json({ ok: true, size: input.length });
+  } catch (e) { next(e); }
+});
+
+// 감정 분석 라우트
+const uploadAnalyze = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+const analyzePaths = ['/api/analyze-emotion', '/analyze-emotion'];
+app.post(analyzePaths, uploadAnalyze.single('image'), async (req, res, next) => {
+  try {
     let input = null, source = 'unknown';
     if (req.file?.buffer) { input = req.file.buffer; source = 'file'; }
     else if (req.body?.imageBase64) {
@@ -128,8 +156,7 @@ app.post(analyzePaths, upload.single('image'), async (req, res, next) => {
     }
     if (!input) return res.status(400).json({ error: 'no image provided' });
 
-    // TODO: 실제 감정 분석 로직 호출 (외부 API/내부 모델)
-    // 샘플: 항상 neutral로 응답(플러그인 지점)
+    // TODO: 실제 감정 분석 로직 호출
     const result = {
       dominant: 'neutral',
       scores: { neutral: 0.9, happy: 0.05, sad: 0.03, angry: 0.02 },
@@ -144,48 +171,21 @@ app.post(analyzePaths, upload.single('image'), async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// 잘못된 메서드 예방
 app.all(analyzePaths, (req, res, next) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed', allow: ['POST'] });
   next();
 });
 
-// ---- /api router (기존 remove-bg 라우트) ----
-const api = express.Router();
-const uploadRemoveBg = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
-
-// 핵심 라우트: POST /api/remove-bg  (GET은 405로 거절)
-api.post('/remove-bg', uploadRemoveBg.single('image'), async (req, res, next) => {
-  try {
-    let input = null;
-    if (req.file?.buffer) input = req.file.buffer;
-    else if (req.body?.imageBase64) {
-      const b64 = String(req.body.imageBase64).split(',').pop();
-      input = Buffer.from(b64, 'base64');
-    }
-    if (!input) return res.status(400).json({ error: 'no image provided' });
-
-    // TODO: 실제 배경제거 로직 호출
-    if (process.env.DEMO_DELAY_MS) await new Promise(r => setTimeout(r, Number(process.env.DEMO_DELAY_MS)));
-    res.status(200).json({ ok: true, size: input.length });
-  } catch (e) { next(e); }
-});
-api.all('/remove-bg', (req, res) => res.status(405).json({ error: 'method not allowed', allow: ['POST'] }));
-
-app.use('/api', api);
-
-// favicon 노이즈 제거
+// favicon 소음 제거
 app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
-// JSON 404 / 에러 핸들러(HTML 금지)
+// JSON 404/에러 핸들러
 app.use((req, res) => res.status(404).json({ error: 'not found', path: req.path }));
 app.use((err, req, res, _next) => {
   console.error('error:', err);
-  const code = Number(err?.status || err?.statusCode || 500);
-  res.status(code).json({ error: err?.message || 'internal error' });
+  res.status(Number(err?.status || err?.statusCode || 500)).json({ error: err?.message || 'internal error' });
 });
 
-// 서버 시작
 const server = app.listen(PORT, HOST, () => {
   console.log(`listening on http://${HOST}:${PORT}`);
   logRoutes(app);
@@ -196,13 +196,14 @@ server.headersTimeout = 62000;
 
 async function init() {
   try {
+    // 필수 의존성 초기화(DB/캐시/시크릿)만 레디니스 기준
     if (process.env.BOOT_DELAY_MS) await new Promise(r => setTimeout(r, Number(process.env.BOOT_DELAY_MS)));
-    isReady = true;
+    isReady = true;                 // AI 비활성이어도 서버는 준비로 간주
     console.log('SERVER_READY');
   } catch (e) { console.error('INIT_FAILED', e); process.exit(1); }
 }
 
-// 라우트 테이블 출력(경로/메서드 확인용)
+// 라우트 테이블 출력
 function logRoutes(app) {
   const list = [];
   app._router.stack.forEach((m) => {

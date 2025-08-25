@@ -12,6 +12,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
     <script src="firebase-config.js"></script>
+    <script src="api.js"></script>
     
     <!-- 🔧 인트로 버튼용 즉시 사용 가능한 함수들 -->
     <script>
@@ -2661,7 +2662,7 @@
                 }
                 
                 // AI 상태 확인 (정보 제공용, 앱 부트는 차단하지 않음)
-                const base = window.location.hostname === 'localhost' ? '' : 'https://meart-e.onrender.com';
+                const base = window.apiBase ? window.apiBase() : window.location.origin;
                 await checkServerStatus(base);
                 
                 console.log('✅ 서버 준비 확인 완료, API 호출 시작');
@@ -2674,10 +2675,8 @@
                     headers['Authorization'] = `Bearer ${authToken}`;
                 }
                 
-                // 🔧 Render 배포 환경에 맞게 절대 URL 사용
-                const apiUrl = window.location.hostname === 'localhost' 
-                    ? '/api/remove-bg' 
-                    : 'https://meart-e.onrender.com/api/remove-bg';
+                // 🔧 동적 API URL 사용 (Railway/Render 호환)
+                const apiUrl = window.apiBase ? `${window.apiBase()}/api/remove-bg` : '/api/remove-bg';
                 
                 console.log('🌐 API 호출 URL:', apiUrl);
                 console.log('📤 요청 헤더:', headers);
@@ -2828,10 +2827,8 @@
                 const formData = new FormData();
                 formData.append('image', currentFile);
                 
-                // 🔧 Render 배포 환경에 맞게 절대 URL 사용
-                const emotionApiUrl = window.location.hostname === 'localhost' 
-                    ? '/analyze-emotion' 
-                    : 'https://meart-e.onrender.com/analyze-emotion';
+                // 🔧 동적 API URL 사용 (Railway/Render 호환)
+                const emotionApiUrl = window.apiBase ? `${window.apiBase()}/analyze-emotion` : '/analyze-emotion';
                 
                 console.log('🌐 감정 분석 API 호출 URL:', emotionApiUrl);
                 
@@ -3280,7 +3277,7 @@
                 // 🔧 Render 배포 환경에 맞게 절대 URL 사용
                 const brushApiUrl = window.location.hostname === 'localhost' 
                     ? '/api/apply-brush-effect' 
-                    : 'https://meart-e.onrender.com/api/apply-brush-effect';
+                    : `${window.apiBase ? window.apiBase() : window.location.origin}/api/apply-brush-effect`;
                 
                 console.log('🌐 브러시 효과 API 호출 URL:', brushApiUrl);
                 
@@ -3784,7 +3781,7 @@
             // 🔧 Render 배포 환경에 맞게 절대 URL 사용
             const signupApiUrl = window.location.hostname === 'localhost' 
                 ? '/api/auth/signup' 
-                : 'https://meart-e.onrender.com/api/auth/signup';
+                : `${window.apiBase ? window.apiBase() : window.location.origin}/api/auth/signup`;
             
             console.log('🌐 회원가입 API 호출 URL:', signupApiUrl);
             
@@ -3827,7 +3824,7 @@
             // 🔧 Render 배포 환경에 맞게 절대 URL 사용
             const loginApiUrl = window.location.hostname === 'localhost' 
                 ? '/api/auth/login' 
-                : 'https://meart-e.onrender.com/api/auth/login';
+                : `${window.apiBase ? window.apiBase() : window.location.origin}/api/auth/login`;
             
             console.log('🌐 로그인 API 호출 URL:', loginApiUrl);
             
@@ -3946,7 +3943,7 @@
                 // 🔧 Render 배포 환경에 맞게 절대 URL 사용
                 const galleryApiUrl = window.location.hostname === 'localhost' 
                     ? '/api/my-art' 
-                    : 'https://meart-e.onrender.com/api/my-art';
+                    : `${window.apiBase ? window.apiBase() : window.location.origin}/api/my-art`;
                 
                 console.log('🌐 갤러리 저장 API 호출 URL:', galleryApiUrl);
                 
@@ -4039,7 +4036,7 @@
             // 🔧 Render 배포 환경에 맞게 절대 URL 사용
             const galleryLoadApiUrl = window.location.hostname === 'localhost' 
                 ? '/api/my-art' 
-                : 'https://meart-e.onrender.com/api/my-art';
+                : `${window.apiBase ? window.apiBase() : window.location.origin}/api/my-art`;
             
             console.log('🌐 갤러리 로드 API 호출 URL:', galleryLoadApiUrl);
             

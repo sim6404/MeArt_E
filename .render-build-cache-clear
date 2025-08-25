@@ -1,60 +1,11 @@
-# Render Build Cache Clear - v1.0.54
-# BG_image 404 오류 근본 해결: 정적 자산 표준화 + 관대한 리졸버 + 배포 누락 방지
-# 2024-12-19 29:00:00 - Render 배포 강제 트리거 (배포 재시도)
+# Railway 배포 트리거 - v1.0.56
+# 2024-12-19 30:00:00
 
-BG_image 404 오류를 근본적으로 해결했습니다:
-
-1. 폴더 구조/자산 배치 표준화:
-   - /public/BG_image/ 디렉토리 보장
-   - /public/BG_image/.keep 파일로 Git 추적 보장
-   - /public/BG_image/_index.json으로 자산 목록 기록
-
-2. 서버: 정적 서빙 + 관대한 파일명 리졸버:
-   - 정적 서빙: express.static으로 정확 매치 우선
-   - 관대한 리졸버: 대소문자/구분자/특수문자 차이 흡수
-   - 캐싱: Map으로 매칭 결과 캐싱
-   - 근사치 탐색: 확장자 기반 유사 매칭
-   - JSON 404: 브라우저 이미지 요청 시 콘솔에만 노출
-
-3. 빌드/배포 시 자산 누락 방지:
-   - .gitignore에 !public/, !public/BG_image/ 명시적 포함
-   - render.yaml에 git lfs pull 명령어 추가
-   - 빌드 단계에서 LFS 파일 당겨오기 보장
-
-4. 클라이언트: 경로 헬퍼로 통일:
-   - public/assets.js: getBgImageUrl(), getBgImagePath() 헬퍼 함수
-   - BG_IMAGES 배열로 사용 가능한 이미지 목록 제공
-   - getRandomBgImageUrl() 함수로 랜덤 이미지 선택
-   - 전역 함수로 window 객체에 추가
-
-5. 자가 테스트 스크립트:
-   - scripts/assets-selftest.mjs: 모든 BG_image 자산 점검
-   - npm run test-assets: 배포 전/후 자산 유무 확인
-   - HTTP 200 응답으로 접근 가능성 검증
-
-6. 해결된 문제들:
-   - GET /BG_image/the_harbor_at_lorient_1970.17.48.jpg 404 → 200 OK
-   - GET /BG_image/farmhouse_in_provence_1970.17.34.jpg 404 → 200 OK
-   - 대소문자/구분자 오차로 인한 404 → 관대한 리졸버로 해결
-   - 배포 시 자산 누락 → Git LFS + .gitignore 규칙으로 방지
-   - 클라이언트 경로 오타 → 헬퍼 함수로 통일
-
-7. 검증 결과:
-   ✅ /BG_image/the_harbor_at_lorient_1970.17.48.jpg → 200
-   ✅ /BG_image/farmhouse_in_provence_1970.17.34.jpg → 200
-   ✅ /BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg → 200
-   ✅ /BG_image/hampton_court_green_1970.17.53.jpg → 200
-   ✅ All BG_image assets are accessible!
-
-8. 캐시 헤더 최적화:
-   - Cache-Control: public, max-age=2592000, immutable
-   - 30일 캐시로 성능 향상
-   - immutable 플래그로 브라우저 캐시 최적화
-
-9. 향후 개선 방안:
-   - 실제 고해상도 이미지로 플레이스홀더 교체
-   - 이미지 최적화 및 압축 적용
-   - CDN 연동으로 전역 성능 향상
-   - 이미지 lazy loading 구현
-
-이제 BG_image 404 오류가 근본적으로 해결되고 모든 정적 자산이 안정적으로 서빙됩니다!
+Railway 배포 최적화 완료:
+- server.js Railway 하드닝 (PORT 3000, CORS 개선, 레디니스 게이트)
+- 클라이언트 하드코딩 도메인 제거 (동적 API 베이스 URL)
+- railway.json 최적화 (환경 변수, 헬스 체크)
+- package.json 업데이트 (railway-selftest, postinstall)
+- API 헬퍼 함수 추가 (교착 방지, 폴백 처리)
+- 셀프테스트 스크립트 추가
+- BG_image 정적 서빙 유지
