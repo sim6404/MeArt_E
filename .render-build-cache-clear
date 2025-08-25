@@ -1,36 +1,43 @@
-# Render Build Cache Clear - v1.0.43
-# Render 배포 오류 해결: 단순화된 설정으로 안정성 확보
-# 2024-12-19 22:30:00 - Render 배포 강제 트리거
+# Render Build Cache Clear - v1.0.44
+# npm 경고 해결 및 환경 동기화: 근본적인 배포 문제 해결
+# 2024-12-19 23:00:00 - Render 배포 강제 트리거
 
-Render 배포 오류를 해결하기 위해 모든 설정을 단순화했습니다:
+npm 경고와 환경 불일치 문제를 근본적으로 해결했습니다:
 
-1. Dockerfile 단순화:
-   - 멀티스테이지 빌드 제거 → 단일 스테이지로 변경
-   - 불필요한 시스템 패키지 제거 (curl만 유지)
-   - 복잡한 빌드 과정 제거
-   - 헬스체크 설정 완화 (start-period: 60s)
+1. Node/npm 버전 고정:
+   - .nvmrc 생성: Node.js 20.19.4 고정
+   - package.json engines: node 20.19.4 명시
+   - packageManager: npm@10 추가
+   - Render Node 20 환경과 완전 일치
 
-2. server.js 단순화:
-   - 복잡한 Promise 기반 서버 시작 제거
-   - 기본 Express 서버 시작 방식으로 복귀
-   - 불필요한 초기화 함수 제거
-   - 서버 준비 상태 체크 미들웨어 제거
+2. .npmrc 정리:
+   - 구식 only=production 제거
+   - omit=dev로 정상화
+   - engine-strict=true 추가
+   - save-exact=true로 버전 고정
+   - 사설 레지스트리 토큰 지원
 
-3. render.yaml 단순화:
-   - buildCommand: npm ci (빌드 스크립트 제거)
-   - startCommand: npm start (간단한 시작 명령)
-   - 불필요한 환경변수 제거 (BOOT_DELAY_MS)
-   - 추가 설정 제거 (numInstances, autoDeploy)
+3. lockfile 동기화 자동화:
+   - scripts/lock-sync.mjs 생성
+   - npm run lock:sync 스크립트 추가
+   - package-lock.json 불일치 자동 해결
+   - 의존성 설치 검증 자동화
 
-4. package.json 단순화:
-   - build 스크립트 제거
-   - overrides 섹션 제거
-   - 최소한의 의존성만 유지
+4. Dockerfile 멀티스테이지 최적화:
+   - Node.js 20.19.4-alpine 사용
+   - deps 스테이지에서 npm ci --omit=dev
+   - runner 스테이지에서 의존성 복사
+   - 프로덕션 환경 최적화
 
-5. 배포 오류 해결 전략:
-   - 복잡한 설정 제거로 빌드 실패 가능성 최소화
-   - 기본적인 Node.js/Express 패턴 사용
-   - Render의 기본 설정 활용
-   - 단계별 문제 해결 접근
+5. render.yaml 빌드 명령 통일:
+   - buildCommand: npm ci --omit=dev && npm run build
+   - startCommand: npm run start
+   - 환경별 설치 커맨드 통일
 
-이제 단순하고 안정적인 배포가 가능합니다!
+6. 해결된 문제들:
+   - npm warn config only 경고 완전 제거
+   - dev 의존성 제외 방식 통일
+   - lockfile 불일치 자동 해결
+   - Node/npm 버전 환경 편차 해결
+
+이제 npm 경고 없이 안정적인 배포가 가능합니다!

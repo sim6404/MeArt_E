@@ -6,8 +6,8 @@ services:
     region: singapore
     repo: https://github.com/sim6404/MeArt_E
     branch: main
-    buildCommand: npm ci
-    startCommand: npm start
+    buildCommand: npm ci --omit=dev && npm run build
+    startCommand: npm run start
     healthCheckPath: /healthz
     envVars:
       - key: NODE_ENV
