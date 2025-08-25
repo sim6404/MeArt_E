@@ -2531,56 +2531,76 @@
             hideMessage();
 
             try {
-                // 1. 배경 제거
+                // 1. 배경 제거 (교착 방지)
+                console.log('🔄 1단계: 배경 제거 시작');
                 const bgRemoved = await removeBackgroundInternal();
                 if (!bgRemoved) {
-                    showLoading(false);
-                    return;
+                    console.warn('⚠️ 배경 제거 실패 — 다음 단계로 진행');
+                    // 교착 방지: 배경 제거 실패해도 계속 진행
                 }
 
-                // 2. 감정 분석
+                // 2. 감정 분석 (교착 방지)
+                console.log('🔄 2단계: 감정 분석 시작');
                 const emotionResult = await analyzeEmotionInternal();
                 if (!emotionResult) {
-                    showLoading(false);
-                    return;
+                    console.warn('⚠️ 감정 분석 실패 — 기본값 사용');
+                    // 교착 방지: 감정 분석 실패해도 기본값 사용
                 }
 
-                // 3. 명화 추천 (자동으로 첫 번째 명화 선택)
-                console.log('🎯 감정 분석 결과 확인:', emotionResult);
+                // 3. 명화 추천 (교착 방지)
+                console.log('🔄 3단계: 명화 추천 시작');
                 const detectedEmotion = emotionResult?.emotion || currentEmotion || 'neutral';
                 console.log('🎯 사용할 감정:', detectedEmotion);
-                await recommendArtworks(detectedEmotion);
                 
-                // 4. 자동으로 첫 번째 명화와 배경 합성 실행
+                try {
+                    await recommendArtworks(detectedEmotion);
+                } catch (e) {
+                    console.warn('⚠️ 명화 추천 실패:', e.message);
+                }
+                
+                // 4. 자동 합성 (교착 방지)
+                console.log('🔄 4단계: 자동 합성 시작');
                 const key = mapEmotionKey(detectedEmotion);
                 const artworks = ARTWORKS_BY_EMOTION[key];
                 if (artworks && artworks.length > 0) {
                     const firstArtwork = artworks[0];
-                    await applyComposite(firstArtwork.id, firstArtwork.image);
+                    try {
+                        await applyComposite(firstArtwork.id, firstArtwork.image);
+                    } catch (e) {
+                        console.warn('⚠️ 자동 합성 실패:', e.message);
+                        showMessage('자동 합성에 실패했습니다. 수동으로 시도해주세요.', 'warning');
+                    }
                 }
 
             } catch (error) {
-                showMessage(error.message, 'error');
+                console.error('❌ processImageAutomatically 오류:', error);
+                showMessage('이미지 처리 중 오류가 발생했습니다. 다시 시도해주세요.', 'error');
             } finally {
                 showLoading(false);
             }
         }
 
-        // checkServerStatus: 항상 200을 기대, 404면 백엔드 미배포/경로오류 경고
+        // checkServerStatus: 교착 방지 로직으로 수정
         async function checkServerStatus(base = '') {
             const url = (base ? base.replace(/\/$/, '') : '') + '/api/status?t=' + Date.now();
             try {
                 const res = await fetch(url, { cache: 'no-store' });
-                if (res.status === 404) throw new Error('status endpoint missing (404)');
-                if (!res.ok) throw new Error('status ' + res.status);
+                if (res.status === 404) {
+                    console.warn('⚠️ /api/status endpoint missing (404) — degraded mode');
+                    return null;
+                }
+                if (!res.ok) {
+                    console.warn(`⚠️ /api/status error ${res.status} — degraded mode`);
+                    return null;
+                }
                 const json = await res.json();
-                // AI 비활성은 정보 수준
+                // AI 비활성은 정보 수준 (앱 차단하지 않음)
                 if (json?.ai && !json.ai.ready) {
-                    console.info(`AI not ready: ${json.ai.reason} (provider=${json.ai.provider})`);
+                    console.info(`ℹ️ AI not ready: ${json.ai.provider} (${json.ai.ready})`);
                 }
                 return json;
             } catch (e) {
-                console.warn('checkServerStatus warning:', e.message);
+                console.warn('⚠️ checkServerStatus failed:', e.message, '— degraded mode');
                 return null; // 앱 부트는 계속
             }
         }
@@ -2616,7 +2636,7 @@
             catch (e1) { if (/404/.test(String(e1))) return await doPost(urlFallback); throw e1; }
         }
 
-        // waitForReady: /readyz만으로 준비여부 판단(404/502도 재시도)
+        // waitForReady: 교착 방지 로직으로 수정
         async function waitForReady({ base = '', maxWaitMs = 60000, baseDelay = 300 } = {}) {
             const target = (base ? base.replace(/\/$/, '') : '') + '/readyz';
             const start = Date.now(); 
@@ -2641,24 +2661,24 @@
                 const elapsed = Math.floor((Date.now() - start) / 1000);
                 
                 console.log(`⏳ 서버 준비 중... (${attempt}회, ${elapsed}초 경과, ${last})`);
-                showMessage(`서버 준비 중. ${elapsed}초 경과...`, 'info');
                 
                 await new Promise(r => setTimeout(r, delay));
             }
             
-            throw new Error(`서버 연결 확인 중: 일정 시간 내 응답 없음 (url=/readyz, last=${last})`);
+            // 교착 방지: 타임아웃 시 false 반환 (에러 던지지 않음)
+            console.warn('⚠️ 서버 준비 타임아웃 — degraded mode로 진행');
+            return false;
         }
 
         async function removeBackgroundInternal() {
             try {
-                // 🔧 서버 준비 상태 먼저 확인
+                // 🔧 서버 준비 상태 확인 (교착 방지)
                 console.log('🔍 서버 준비 상태 확인 중...');
-                const isServerReady = await waitForReady({ maxWaitMs: 30000 });
+                const isServerReady = await waitForReady({ maxWaitMs: 10000 }); // 10초로 단축
                 
                 if (!isServerReady) {
-                    console.log('❌ 서버가 준비되지 않았습니다.');
-                    showMessage('서버가 초기화 중입니다. 잠시 후 다시 시도해주세요.', 'info');
-                    return false;
+                    console.log('⚠️ 서버 준비 확인 실패 — degraded mode로 진행');
+                    // 교착 방지: 서버 준비 실패해도 계속 진행
                 }
                 
                 // AI 상태 확인 (정보 제공용, 앱 부트는 차단하지 않음)
@@ -2832,26 +2852,18 @@
                 
                 console.log('🌐 감정 분석 API 호출 URL:', emotionApiUrl);
                 
-                console.log('📤 감정 분석 요청 헤더:', {});
-                console.log('📁 감정 분석 파일 정보:', {
-                    name: currentFile.name,
-                    size: currentFile.size,
-                    type: currentFile.type
-                });
-                
                 const response = await fetch(emotionApiUrl, {
                     method: 'POST',
                     body: formData
                 });
 
-                // 🔧 감정 분석 응답 상태 로깅
                 console.log('🔎 감정 분석 응답 상태 코드:', response.status);
-                console.log('🔎 감정 분석 응답 상태 텍스트:', response.statusText);
 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error('❌ 감정 분석 응답 오류:', errorText);
-                    throw new Error(`감정 분석 API 요청 실패 (${response.status}): ${errorText.substring(0, 100)}`);
+                    console.warn('⚠️ 감정 분석 응답 오류:', errorText);
+                    // 교착 방지: 에러를 던지지 않고 null 반환
+                    return null;
                 }
 
                 // 🔧 감정 분석 JSON 파싱 강화
@@ -2860,27 +2872,28 @@
                     result = await response.json();
                     console.log('✅ 감정 분석 응답 파싱 성공:', result);
                 } catch (err) {
-                    console.error('❌ 감정 분석 JSON 파싱 실패:', err);
-                    throw new Error('감정 분석 API 응답이 올바른 JSON 형식이 아닙니다.');
+                    console.warn('⚠️ 감정 분석 JSON 파싱 실패:', err);
+                    // 교착 방지: 파싱 실패해도 null 반환
+                    return null;
                 }
 
-                if (response.ok) {
+                if (result && result.emotion) {
                     // 🎯 현재 감정 정보 저장
                     currentEmotion = result.emotion;
                     console.log('😊 현재 감정 업데이트:', currentEmotion);
                     
-                    // 감정 피드백 표시
+                    // 감정 피드백 표시 (선택적)
                     if (result.feedback) {
                         showEmotionFeedback(result.emotion, result.feedback);
-                    } else {
-                        showMessage(`감정 분석 결과: ${result.emotion} (${(result.confidence * 100).toFixed(1)}%)`, 'success');
                     }
                     return result;
                 } else {
-                    throw new Error(result.error || '감정 분석 중 오류가 발생했습니다.');
+                    console.warn('⚠️ 감정 분석 결과가 올바르지 않음:', result);
+                    return null;
                 }
             } catch (error) {
-                showMessage(error.message, 'error');
+                console.warn('⚠️ 감정 분석 실패:', error.message);
+                // 교착 방지: 에러를 던지지 않고 null 반환
                 return null;
             }
         }
