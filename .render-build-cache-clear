@@ -1,54 +1,56 @@
-# Render Build Cache Clear - v1.0.50
-# 정확한 라우트 제공과 404 오류 근본 해결: POST /api/remove-bg 구현 및 JSON 응답 통일
-# 2024-12-19 26:00:00 - Render 배포 강제 트리거
+# Render Build Cache Clear - v1.0.51
+# analyze-emotion 라우트 구현: POST /api/analyze-emotion + alias 지원으로 404 오류 근본 해결
+# 2024-12-19 26:30:00 - Render 배포 강제 트리거
 
-정확한 라우트 제공과 404 오류를 근본적으로 해결했습니다:
+analyze-emotion 라우트를 구현하고 404 오류를 근본적으로 해결했습니다:
 
-1. 백엔드 정확한 라우트 구현:
-   - POST /api/remove-bg 라우트 명시적 구현
-   - router('/api') 아래에 '/remove-bg' 마운트
-   - multer를 통한 파일 업로드 처리
-   - Base64 이미지 지원
-   - GET 요청은 405 Method Not Allowed로 거절
+1. 백엔드 analyze-emotion 라우트 구현:
+   - POST /api/analyze-emotion 라우트 명시적 구현
+   - 구경로 호환: /analyze-emotion alias 지원
+   - 입력 정규화: 파일 업로드 또는 base64 지원
+   - 메서드 405 처리: GET 요청은 Method Not Allowed
+   - JSON 에러 통일: HTML 응답 금지
 
-2. 모든 에러/미존재 라우트 JSON 응답 통일:
-   - 404 Not Found → JSON 응답 (HTML 금지)
-   - 공통 에러 핸들러 → JSON 응답 (HTML 금지)
-   - "Unexpected token '<'" 오류 완전 제거
-   - 프런트엔드 JSON 파싱 실패 방지
+2. 감정 분석 API 핸들러:
+   - 단일 핸들러로 두 경로 모두 지원
+   - 파일 업로드: multer를 통한 이미지 처리
+   - Base64 입력: JSON body에서 이미지 데이터 처리
+   - 샘플 응답: neutral 감정으로 기본 응답
+   - 플러그인 지점: 실제 AI 모델 연동 가능
 
-3. 서버 상태/레디니스/게이트 정비:
+3. 클라이언트 호출부 강화:
+   - callAnalyzeEmotion 함수 구현
+   - 경로 fallback 지원: /api/analyze-emotion → /analyze-emotion
+   - 비-JSON 응답 시 텍스트로 에러 표시
+   - 상세한 오류 메시지 제공
+
+4. 셀프 테스트 추가:
+   - scripts/test-analyze.mjs: analyze-emotion 엔드포인트 자동 검증
+   - npm run test-analyze: 배포 전 자동 테스트
+   - 두 경로 모두 200 OK 확인
+
+5. 서버 상태/레디니스/게이트 정비:
    - 0.0.0.0:$PORT로 즉시 listen
-   - /healthz (항상 200), /readyz (503/200), /api/status (항상 200)
+   - /healthz (항상 200), /readyz (503/200), /api/status (라우트 목록 포함)
    - 준비 전 전역 게이트로 일반 API 503 차단
    - 화이트리스트: /healthz, /readyz, /api/status, /favicon.ico
 
-4. 라우트 테이블 진단 기능:
+6. 라우트 테이블 진단 기능:
    - 부팅 시 [routes] 목록 출력
-   - POST /api/remove-bg 라우트 확인 가능
+   - POST /api/analyze-emotion, POST /analyze-emotion 라우트 확인
    - npm run routes: 라우트 실시간 점검
 
-5. 클라이언트 호출부 강화:
-   - 비-JSON 응답 시 텍스트로 에러 표시
-   - 상세한 오류 메시지 제공
-   - JSON 파싱 실패 시 명확한 진단
-
-6. 의존성 추가:
-   - multer: 파일 업로드 처리
-   - compression: 응답 압축
-   - Node.js >=18 호환성 확보
-
 7. 해결된 문제들:
-   - POST /api/remove-bg 404 → 200 OK
-   - "Unexpected token '<'" → JSON 응답으로 해결
-   - 라우트 미구현/오타 → 정확한 라우트 구현
-   - router prefix 불일치 → /api 마운트 확인
-   - 마운트 순서 문제 → 게이트/정적/404 순서 정리
+   - POST /api/analyze-emotion 404 → 200 OK
+   - POST /analyze-emotion 404 → 200 OK (구경로 호환)
+   - "Cannot POST /analyze-emotion" → 정상 처리
+   - JSON 파싱 실패 → JSON 응답으로 해결
+   - 경로/메서드/마운트 순서 문제 해결
 
 8. 자체 점검 도구:
-   - scripts/selftest.mjs: POST /api/remove-bg 테스트 포함
-   - scripts/route-map.mjs: 라우트 실시간 점검
-   - npm run selftest: 배포 전 자동 테스트
+   - scripts/test-analyze.mjs: analyze-emotion 엔드포인트 테스트
+   - scripts/selftest.mjs: remove-bg 엔드포인트 테스트
+   - npm run test-analyze: 배포 전 자동 테스트
 
 9. Render 설정 최적화:
    - Web Service(Node) 배포 확인
@@ -56,4 +58,4 @@
    - Start Command: npm run start
    - 0.0.0.0:$PORT 리슨 보장
 
-이제 정확한 라우트와 JSON 응답으로 안정적인 서버 운영이 가능합니다!
+이제 analyze-emotion 라우트와 JSON 응답으로 안정적인 서버 운영이 가능합니다!

@@ -2584,6 +2584,37 @@
             }
         }
 
+        // callAnalyzeEmotion: 감정 분석 API 호출 (경로 fallback 지원)
+        async function callAnalyzeEmotion({ base = '', file, imageBase64 }) {
+            const urlPrimary = (base.replace(/\/$/, '') || '') + '/api/analyze-emotion';
+            const urlFallback = (base.replace(/\/$/, '') || '') + '/analyze-emotion';
+
+            const doPost = async (url) => {
+                let res;
+                if (file) {
+                    const fd = new FormData(); fd.append('image', file);
+                    res = await fetch(url, { method: 'POST', body: fd });
+                } else {
+                    res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json', 'accept': 'application/json' },
+                        body: JSON.stringify({ imageBase64 })
+                    });
+                }
+                const text = await res.text();
+                try {
+                    const json = JSON.parse(text);
+                    if (!res.ok || json?.ok === false) throw new Error(json?.error || `analyze-emotion ${res.status}`);
+                    return json;
+                } catch {
+                    throw new Error(`analyze-emotion non-JSON (${res.status}): ${text.slice(0, 180)}`);
+                }
+            };
+
+            try { return await doPost(urlPrimary); }
+            catch (e1) { if (/404/.test(String(e1))) return await doPost(urlFallback); throw e1; }
+        }
+
         // waitForReady: /readyz만으로 준비여부 판단(404/502도 재시도)
         async function waitForReady({ base = '', maxWaitMs = 60000, baseDelay = 300 } = {}) {
             const target = (base ? base.replace(/\/$/, '') : '') + '/readyz';
