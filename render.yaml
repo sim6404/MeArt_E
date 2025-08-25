@@ -2,7 +2,11 @@ services:
   - type: web
     name: meart-e
     env: node
-    buildCommand: npm ci --omit=dev --prefer-offline --no-audit --no-fund --loglevel=error --progress=false && npm run build
+    buildCommand: |
+      git lfs install --local || true
+      git lfs pull || true
+      npm ci --omit=dev --prefer-offline --no-audit --no-fund --loglevel=error --progress=false
+      npm run build || true
     startCommand: npm run start
     healthCheckPath: /healthz
     envVars:

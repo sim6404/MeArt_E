@@ -103,3 +103,8 @@ serviceAccountKey.json
 # Development artifacts
 TuxCoRepl*
 sample_pic/
+
+# Ensure public assets are included (especially BG_image)
+!public/
+!public/BG_image/
+!public/BG_image/*

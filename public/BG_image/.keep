@@ -1,0 +1,2 @@
+# This file ensures the BG_image directory is tracked by Git
+# even when it's empty, so static assets can be properly served.
