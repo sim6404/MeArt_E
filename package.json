@@ -2,7 +2,7 @@
   "name": "meart-e-web",
   "private": true,
   "type": "commonjs",
-  "version": "1.0.54",
+  "version": "1.0.55",
   "description": "AI-based emotion art generator with brush effects",
   "main": "server.js",
   "packageManager": "npm@10",
