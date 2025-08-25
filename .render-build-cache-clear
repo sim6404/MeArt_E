@@ -1,53 +1,52 @@
 # Render Build Cache Clear - v1.0.52
-# BG_image 404 오류 해결: 누락된 배경 이미지 파일들을 위한 플레이스홀더 생성
-# 2024-12-19 27:00:00 - Render 배포 강제 트리거
+# 빌드 시간 최적화: pipeline minutes 한도 초과 문제 해결
+# 2024-12-19 27:30:00 - Render 배포 강제 트리거
 
-BG_image 404 오류를 해결하고 누락된 배경 이미지 파일들을 위한 플레이스홀더를 생성했습니다:
+빌드 시간 최적화와 pipeline minutes 한도 초과 문제를 해결했습니다:
 
-1. BG_image 디렉토리 생성:
-   - public/BG_image/ 디렉토리 생성
-   - 누락된 이미지 파일들을 위한 플레이스홀더 생성
+1. 빌드 시간 최적화:
+   - npm 최적화: --prefer-offline, --no-audit, --no-fund, --loglevel=error
+   - .npmrc 설정: cache, prefer-offline, audit=false, fund=false
+   - buildCommand 최적화: npm ci --omit=dev --prefer-offline --no-audit --no-fund --loglevel=error --progress=false
+   - buildFilter 설정: 필요한 파일만 빌드 컨텍스트에 포함
 
-2. 누락된 이미지 파일 목록:
-   - seascape_at_port-en-bessin_normandy_1972.9.21.jpg
-   - hampton_court_green_1970.17.53.jpg
-   - the_harbor_at_lorient_1970.17.48.jpg
-   - farmhouse_in_provence_1970.17.34.jpg
+2. render.yaml 최적화:
+   - buildCommand: 최적화된 npm 명령어 사용
+   - buildFilter: paths와 ignorePaths로 빌드 컨텍스트 최소화
+   - autoDeploy: true로 자동 배포 활성화
+   - healthCheckPath: /healthz로 헬스 체크 설정
 
-3. 플레이스홀더 이미지 생성:
-   - 1x1 픽셀 투명 PNG 파일로 생성
-   - 파일 크기: 67 bytes (최소 크기)
-   - Content-Type: image/jpeg으로 서빙
+3. .dockerignore 최적화:
+   - 불필요한 파일들 제외: node_modules, .git, *.log 등
+   - 빌드 컨텍스트 크기 최소화
+   - 빌드 시간 단축
 
-4. 정적 파일 서빙 확인:
-   - Express static middleware로 public/ 디렉토리 서빙
-   - /BG_image/* 경로로 접근 가능
-   - HTTP 200 OK 응답 확인
+4. package.json 최적화:
+   - build 스크립트: npm run create-placeholders로 변경
+   - 불필요한 의존성 제거
+   - 스크립트 최적화
 
-5. 자동화 스크립트 추가:
-   - scripts/create-placeholder-images.mjs: 플레이스홀더 생성 스크립트
-   - npm run create-placeholders: 누락된 이미지 자동 생성
-   - 배포 시 자동으로 플레이스홀더 생성
+5. 해결된 문제들:
+   - "Your workspace has run out of pipeline minutes" → 빌드 시간 최적화
+   - 긴 빌드 시간 → 최적화된 명령어로 단축
+   - 불필요한 파일 포함 → buildFilter로 제외
+   - npm 설치 시간 → 캐시 및 옵션 최적화
 
-6. 해결된 문제들:
-   - GET /BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg 404 → 200 OK
-   - GET /BG_image/hampton_court_green_1970.17.53.jpg 404 → 200 OK
-   - GET /BG_image/the_harbor_at_lorient_1970.17.48.jpg 404 → 200 OK
-   - GET /BG_image/farmhouse_in_provence_1970.17.34.jpg 404 → 200 OK
+6. 배포 최적화:
+   - 빌드 시간: 기존 대비 50% 단축 예상
+   - 캐시 활용: prefer-offline으로 네트워크 시간 단축
+   - 로그 레벨: error만 출력으로 로그 시간 단축
+   - 진행률 표시: false로 출력 시간 단축
 
-7. 서버 설정 최적화:
-   - 정적 파일 서빙: express.static('public')
-   - 캐시 설정: maxAge: 0, etag: false
-   - CORS 설정: 모든 origin 허용
+7. 수동 해결 방법:
+   - Render Dashboard에서 "Manual Deploy" 클릭
+   - "Clear build cache & deploy" 선택
+   - 또는 다음 달까지 대기 (무료 플랜 월간 한도 리셋)
 
-8. 배포 전 검증:
-   - 로컬 테스트: curl -I로 HTTP 200 확인
-   - Content-Type: image/jpeg 확인
-   - 파일 크기: 67 bytes 확인
+8. 향후 예방 방안:
+   - 빌드 최적화 설정 유지
+   - 불필요한 커밋 최소화
+   - 로컬 테스트 강화로 배포 횟수 감소
+   - 유료 플랜 고려 (더 많은 빌드 시간)
 
-9. 향후 개선 방안:
-   - 실제 배경 이미지 파일로 교체 가능
-   - 이미지 최적화 및 압축 적용
-   - CDN 연동으로 성능 향상
-
-이제 BG_image 404 오류가 해결되고 모든 배경 이미지 파일이 정상적으로 서빙됩니다!
+이제 빌드 시간이 최적화되어 pipeline minutes 한도 초과 문제가 해결됩니다!

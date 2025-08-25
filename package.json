@@ -12,7 +12,7 @@
     "test-analyze": "node scripts/test-analyze.mjs",
     "create-placeholders": "node scripts/create-placeholder-images.mjs",
     "selftest": "node scripts/selftest.mjs",
-    "build": "echo build",
+    "build": "npm run create-placeholders",
     "start": "node server.js"
   },
   "dependencies": {

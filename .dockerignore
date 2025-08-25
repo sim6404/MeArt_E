@@ -1,3 +1,4 @@
+# Docker 빌드 최적화
 node_modules
 npm-debug.log
 .git
@@ -6,31 +7,6 @@ README.md
 .env
 .nyc_output
 coverage
-.vscode
-.cursor
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-.Python
-env
-pip-log.txt
-pip-delete-this-directory.txt
-.tox
-.coverage
-.cache
-nosetests.xml
-coverage.xml
-.pytest_cache
 .DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-uploads/*
-!uploads/.gitkeep
-meart_env
-venv
 *.log
-cursor_*.md
-test_*.png
+.render-build-cache-clear
