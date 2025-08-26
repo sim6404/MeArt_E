@@ -1,16 +1,34 @@
-# Railway 배포 트리거 - v1.0.57
-# 2024-12-19 31:00:00
+# Railway 배포 트리거 - v1.0.58
+# 2024-12-19 32:00:00
 
-Railway 배포 후 초기 단계 멈춤 현상 해결:
-- waitForReady 함수 교착 방지 로직 추가 (타임아웃 시 false 반환)
-- removeBackgroundInternal 교착 방지 (서버 준비 실패해도 계속 진행)
-- processImageAutomatically 교착 방지 (각 단계 실패해도 다음 단계 진행)
-- analyzeEmotionInternal 교착 방지 (에러를 던지지 않고 null 반환)
-- checkServerStatus 교착 방지 (404/에러 시 degraded mode로 진행)
+서비스워커 네트워크 전략 교체 및 교착 방지 강화:
+- public/sw.js 생성 (Railway 배포 최적화)
+  - API: network-first + 5초 타임아웃, 실패 시 캐시 또는 JSON 오류로 소프트 폴백
+  - 이미지: stale-while-revalidate, 캐시 미스면 투명 PNG 폴백
+  - 앱 셸: network-first → 실패 시 캐시
+  - 구 캐시 강제 폐기 (CACHE_PREFIX 변경)
+
+- public/net-utils.js 생성 (안전한 네트워크 호출)
+  - safeFetchJson: 타임아웃 + JSON 파싱 강화
+  - safeFetchImage: 타임아웃 + blob 처리
+
+- removeBackgroundInternal 교착 방지 강화
+  - API 실패 시 원본 이미지로 계속 진행
+  - 타임아웃 + 폴백 처리
+  - 재시도 버튼 제공
+
+- processImageAutomatically 교착 방지 강화
+  - 배경 제거 실패해도 다음 단계 진행
+  - 원본 이미지 fallback 처리
+
+- 구 캐시 정리 (Render→Railway 전환)
+  - meart-|render 패턴 캐시 자동 삭제
+  - 도메인 변경 내성 향상
 
 해결된 문제:
-- '먼저 배경이 제거된 이미지가 필요합니다' 메시지에서 교착
-- 서버 준비 확인 실패 시 UI 멈춤 현상
-- API 호출 실패 시 앱 전체 멈춤 현상
+- 서비스워커 캐시 미스로 인한 앱 중단
+- remove-bg API 실패 시 UI 교착
+- Render 도메인 기반 캐시 문제
+- 네트워크 타임아웃 시 앱 멈춤
 
 Railway 배포 후 안정적인 동작 보장!

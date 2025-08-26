@@ -1397,6 +1397,8 @@
         .close { position:absolute;top:12px;right:18px;font-size:2rem;cursor:pointer;}
         .btn.danger { background:#dc3545;color:#fff; }
         .btn.danger:hover { background:#b52a37; }
+        .btn.warning { background:#f59e0b;color:#fff; }
+        .btn.warning:hover { background:#d97706; }
         
         /* 카메라 섹션 스타일 */
         .camera-section {
@@ -2232,6 +2234,7 @@
             <!-- 원본/처리된 이미지 미리보기 섹션 삭제됨 -->
             <div class="controls" id="controls" style="display: none;">
                 <button class="btn secondary" onclick="resetImage()">다시 시작</button>
+                <button class="btn warning" id="retryBgRemovalBtn" onclick="retryBackgroundRemoval()" style="display: none;">🔄 배경 제거 재시도</button>
             </div>
             <div id="message"></div>
             <div id="emotionFeedback" style="display: none;" class="emotion-feedback">
@@ -2586,8 +2589,12 @@
                             processedImage.src = originalUrl;
                             processedImage.style.display = 'block';
                         }
+                        // nobgBlob도 원본으로 설정 (합성 시 사용)
+                        nobgBlob = currentFile;
                         // 재시도 버튼 표시
-                        showMessage('배경 제거에 실패했습니다. 원본 이미지로 계속 진행합니다. 재시도 버튼을 눌러 다시 시도해주세요.', 'warning');
+                        showMessage('배경 제거에 실패했습니다. 원본 이미지로 계속 진행합니다.', 'warning');
+                        const retryBtn = document.getElementById('retryBgRemovalBtn');
+                        if (retryBtn) retryBtn.style.display = 'inline-flex';
                     }
                 }
 
@@ -3116,9 +3123,16 @@
 
         // 1단계: 배경 제거 + 기본 합성
         async function applyComposite(artworkId, backgroundImage) {
+            // 🔧 교착 방지: nobgBlob이 없어도 원본 이미지로 진행
             if (!nobgBlob) {
-                showMessage('먼저 배경이 제거된 이미지가 필요합니다.', 'error');
-                return;
+                console.log('⚠️ nobgBlob이 없음 — 원본 이미지로 합성 진행');
+                if (!currentFile) {
+                    showMessage('이미지를 먼저 업로드해주세요.', 'error');
+                    return;
+                }
+                // 원본 이미지를 nobgBlob으로 사용
+                nobgBlob = currentFile;
+                showMessage('배경 제거 없이 원본 이미지로 합성을 진행합니다.', 'info');
             }
 
             showLoading(true);
@@ -3568,6 +3582,49 @@
                 }
             } catch (error) {
                 showMessage(error.message, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // 🔄 배경 제거 재시도 함수
+        async function retryBackgroundRemoval() {
+            console.log('🔄 배경 제거 재시도 시작');
+            
+            if (!currentFile) {
+                showMessage('이미지가 없습니다.', 'error');
+                return;
+            }
+
+            showLoading(true);
+            hideMessage();
+            
+            // 재시도 버튼 숨기기
+            const retryBtn = document.getElementById('retryBgRemovalBtn');
+            if (retryBtn) retryBtn.style.display = 'none';
+
+            try {
+                const result = await removeBackgroundInternal();
+                
+                if (result && result.ok) {
+                    console.log('✅ 배경 제거 재시도 성공');
+                    showMessage('배경 제거에 성공했습니다!', 'success');
+                    
+                    // 성공 시 재시도 버튼 숨기기
+                    if (retryBtn) retryBtn.style.display = 'none';
+                } else {
+                    console.warn('⚠️ 배경 제거 재시도 실패:', result?.reason || 'unknown error');
+                    showMessage('배경 제거에 실패했습니다. 원본 이미지로 계속 진행합니다.', 'warning');
+                    
+                    // 실패 시 재시도 버튼 표시
+                    if (retryBtn) retryBtn.style.display = 'inline-flex';
+                }
+            } catch (error) {
+                console.error('❌ 배경 제거 재시도 중 오류:', error);
+                showMessage('배경 제거 재시도 중 오류가 발생했습니다.', 'error');
+                
+                // 오류 시 재시도 버튼 표시
+                if (retryBtn) retryBtn.style.display = 'inline-flex';
             } finally {
                 showLoading(false);
             }
