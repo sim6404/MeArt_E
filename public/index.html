@@ -3123,6 +3123,8 @@
 
         // 1단계: 배경 제거 + 기본 합성
         async function applyComposite(artworkId, backgroundImage) {
+            console.log('🎨 합성 시작:', { artworkId, backgroundImage });
+            
             // 🔧 강력한 교착 방지: nobgBlob이 없어도 원본 이미지로 진행
             if (!nobgBlob) {
                 console.log('⚠️ nobgBlob이 없음 — 원본 이미지로 합성 진행');
@@ -3147,6 +3149,16 @@
                     return;
                 }
             }
+            
+            // 🔧 최종 검증: 모든 필수 데이터 확인
+            if (!nobgBlob || !backgroundImage) {
+                console.error('❌ 필수 데이터 누락:', { 
+                    hasNobgBlob: !!nobgBlob, 
+                    hasBackgroundImage: !!backgroundImage 
+                });
+                showMessage('합성에 필요한 데이터가 누락되었습니다.', 'error');
+                return;
+            }
 
             showLoading(true);
             hideMessage();
@@ -3166,14 +3178,17 @@
                     headers['Authorization'] = `Bearer ${authToken}`;
                 }
 
-                const response = await fetch('/api/remove-bg', {
+                // 🔧 올바른 합성 API 호출
+                const response = await fetch('/api/composite', {
                     method: 'POST',
                     headers,
                     body: formData
                 });
 
                 const result = await response.json();
-                if (response.ok) {
+                console.log('🎨 합성 API 응답:', result);
+                
+                if (response.ok && result.ok) {
                     // 🎯 nobgPath 전역 저장
                     lastNobgPath = result.nobgPath;
                     console.log('🔄 nobgPath 저장:', lastNobgPath);

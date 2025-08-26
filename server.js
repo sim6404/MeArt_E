@@ -143,6 +143,39 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// 합성 라우트 추가
+app.post('/api/composite', upload.single('image'), async (req, res, next) => {
+  try {
+    let input = null;
+    if (req.file?.buffer) input = req.file.buffer;
+    else if (req.body?.imageBase64) {
+      const b64 = String(req.body.imageBase64).split(',').pop();
+      input = Buffer.from(b64, 'base64');
+    }
+    if (!input) return res.status(400).json({ error: 'no image provided' });
+
+    const backgroundPath = req.body?.backgroundPath;
+    const emotion = req.body?.emotion || 'neutral';
+
+    console.log('🎨 합성 요청:', { 
+      imageSize: input.length, 
+      backgroundPath, 
+      emotion 
+    });
+
+    // TODO: 실제 합성 로직 호출
+    if (process.env.DEMO_DELAY_MS) await new Promise(r => setTimeout(r, Number(process.env.DEMO_DELAY_MS)));
+
+    // 데모 응답 (실제로는 합성된 이미지 반환)
+    return res.status(200).json({ 
+      ok: true, 
+      processedImageUrl: backgroundPath || '/BG_image/the_harbor_at_lorient_1970.17.48.jpg',
+      emotion: emotion,
+      feedback: `${emotion} 감정에 맞는 배경으로 합성되었습니다.`
+    });
+  } catch (e) { next(e); }
+});
+
 // 감정 분석 라우트
 const uploadAnalyze = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 const analyzePaths = ['/api/analyze-emotion', '/analyze-emotion'];
