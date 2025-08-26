@@ -1,10 +1,32 @@
 {
-  "assets": [
-    "farmhouse_in_provence_1970.17.34.jpg",
-    "the_harbor_at_lorient_1970.17.48.jpg",
-    "hampton_court_green_1970.17.53.jpg",
-    "seascape_at_port-en-bessin_normandy_1972.9.21.jpg"
-  ],
-  "lastUpdated": "2024-12-19T28:30:00Z",
-  "description": "Background images for MeArt application"
+  "artworks": [
+    {
+      "id": "seascape_at_port-en-bessin_normandy_1972.9.21",
+      "title": "seascape at port-en-bessin normandy 1972.9.21",
+      "artist": "Generated",
+      "image": "/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg",
+      "path": "/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg"
+    },
+    {
+      "id": "hampton_court_green_1970.17.53",
+      "title": "hampton court green 1970.17.53",
+      "artist": "Generated",
+      "image": "/BG_image/hampton_court_green_1970.17.53.jpg",
+      "path": "/BG_image/hampton_court_green_1970.17.53.jpg"
+    },
+    {
+      "id": "the_harbor_at_lorient_1970.17.48",
+      "title": "the harbor at lorient 1970.17.48",
+      "artist": "Generated",
+      "image": "/BG_image/the_harbor_at_lorient_1970.17.48.jpg",
+      "path": "/BG_image/the_harbor_at_lorient_1970.17.48.jpg"
+    },
+    {
+      "id": "farmhouse_in_provence_1970.17.34",
+      "title": "farmhouse in provence 1970.17.34",
+      "artist": "Generated",
+      "image": "/BG_image/farmhouse_in_provence_1970.17.34.jpg",
+      "path": "/BG_image/farmhouse_in_provence_1970.17.34.jpg"
+    }
+  ]
 }

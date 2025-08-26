@@ -3123,7 +3123,7 @@
 
         // 1단계: 배경 제거 + 기본 합성
         async function applyComposite(artworkId, backgroundImage) {
-            // 🔧 교착 방지: nobgBlob이 없어도 원본 이미지로 진행
+            // 🔧 강력한 교착 방지: nobgBlob이 없어도 원본 이미지로 진행
             if (!nobgBlob) {
                 console.log('⚠️ nobgBlob이 없음 — 원본 이미지로 합성 진행');
                 if (!currentFile) {
@@ -3132,7 +3132,20 @@
                 }
                 // 원본 이미지를 nobgBlob으로 사용
                 nobgBlob = currentFile;
+                console.log('✅ 원본 이미지를 nobgBlob으로 설정:', currentFile.name, currentFile.size);
                 showMessage('배경 제거 없이 원본 이미지로 합성을 진행합니다.', 'info');
+            }
+            
+            // 🔧 추가 검증: nobgBlob이 유효한지 확인
+            if (!nobgBlob || nobgBlob.size === 0) {
+                console.log('⚠️ nobgBlob이 유효하지 않음 — 원본 이미지로 재설정');
+                if (currentFile) {
+                    nobgBlob = currentFile;
+                    console.log('✅ 원본 이미지로 nobgBlob 재설정');
+                } else {
+                    showMessage('이미지를 먼저 업로드해주세요.', 'error');
+                    return;
+                }
             }
 
             showLoading(true);
@@ -3665,7 +3678,8 @@
         function resetImage() {
             currentFile = null;
             processedImageUrl = null;
-            nobgBlob = null;
+            // 🔧 nobgBlob 초기화 제거 - 교착 방지
+            // nobgBlob = null;
             fileInput.value = '';
             if (imagePreview) imagePreview.style.display = 'none';
             controls.style.display = 'none';
@@ -3674,6 +3688,10 @@
             hideBrushEffectButton();
             hideMessage();
             hideEmotionFeedback();
+            
+            // 재시도 버튼도 숨기기
+            const retryBtn = document.getElementById('retryBgRemovalBtn');
+            if (retryBtn) retryBtn.style.display = 'none';
         }
 
         function showLoading(show) {
