@@ -96,10 +96,95 @@ export async function callComposite({ fgBase64, fgUrl, bgKey, bgUrl, mode='conta
   try {
     const json = JSON.parse(text);
     if (!res.ok || json?.ok === false) throw new Error(json?.error || `composite_failed_${res.status}`);
+    
+    // 새로운 API 응답 형식에 맞춰 클라이언트에서 합성 처리
+    if (json.fgImage && json.bgImage) {
+      // 클라이언트에서 CSS로 합성
+      const compositeImage = await createClientComposite(json.fgImage, json.bgImage, json.mode, json.opacity);
+      return {
+        ...json,
+        compositeBase64: compositeImage
+      };
+    }
+    
     return json;
   } catch {
     throw new Error(`composite non-JSON (${res.status}): ${text.slice(0,180)}`);
   }
+}
+
+// 클라이언트에서 CSS로 이미지 합성
+async function createClientComposite(fgImage, bgImage, mode = 'contain', opacity = 1.0) {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 1024;
+    canvas.height = 1024;
+    
+    const bgImg = new Image();
+    const fgImg = new Image();
+    
+    bgImg.onload = () => {
+      // 배경 그리기
+      ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+      
+      fgImg.onload = () => {
+        // 전경 그리기 (중앙 정렬)
+        const scale = mode === 'cover' ? 
+          Math.max(canvas.width / fgImg.width, canvas.height / fgImg.height) :
+          Math.min(canvas.width / fgImg.width, canvas.height / fgImg.height);
+        
+        const fgWidth = fgImg.width * scale;
+        const fgHeight = fgImg.height * scale;
+        const x = (canvas.width - fgWidth) / 2;
+        const y = (canvas.height - fgHeight) / 2;
+        
+        ctx.globalAlpha = opacity;
+        ctx.drawImage(fgImg, x, y, fgWidth, fgHeight);
+        
+        // Base64로 변환
+        const dataUrl = canvas.toDataURL('image/png');
+        resolve(dataUrl);
+      };
+      
+      fgImg.onerror = () => {
+        // 전경 로드 실패 시 배경만 반환
+        const dataUrl = canvas.toDataURL('image/png');
+        resolve(dataUrl);
+      };
+      
+      fgImg.src = fgImage;
+    };
+    
+    bgImg.onerror = () => {
+      // 배경 로드 실패 시 기본 흰색 배경
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      fgImg.onload = () => {
+        const scale = Math.min(canvas.width / fgImg.width, canvas.height / fgImg.height);
+        const fgWidth = fgImg.width * scale;
+        const fgHeight = fgImg.height * scale;
+        const x = (canvas.width - fgWidth) / 2;
+        const y = (canvas.height - fgHeight) / 2;
+        
+        ctx.globalAlpha = opacity;
+        ctx.drawImage(fgImg, x, y, fgWidth, fgHeight);
+        
+        const dataUrl = canvas.toDataURL('image/png');
+        resolve(dataUrl);
+      };
+      
+      fgImg.onerror = () => {
+        const dataUrl = canvas.toDataURL('image/png');
+        resolve(dataUrl);
+      };
+      
+      fgImg.src = fgImage;
+    };
+    
+    bgImg.src = bgImage;
+  });
 }
 
 // 전역으로 노출 (기존 코드와 호환)

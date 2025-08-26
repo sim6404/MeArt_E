@@ -204,16 +204,23 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// ---- /api/composite : 전경(fg) + 배경(bg) 합성 ----
+// ---- /api/composite : 전경(fg) + 배경(bg) 합성 (Jimp 의존성 제거) ----
 function sanitizeFileName(name='') {
   // 경로탈출 방지: 파일명만 허용
   return String(name).replace(/[^a-zA-Z0-9._-]/g, '');
 }
 
+// 간단한 Base64 이미지 생성 (Jimp 대신)
+function createSimpleImage(width = 100, height = 100, color = '#ffffff') {
+  const canvas = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100%" height="100%" fill="${color}"/>
+  </svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(canvas).toString('base64')}`;
+}
+
 app.post('/api/composite', express.json({ limit: MAX_BODY }), async (req, res, next) => {
   try {
     const {
-      // 하나는 반드시 제공
       fgBase64,           // "data:image/...;base64,...." 또는 순수 base64
       fgUrl,              // (선택) 전경 URL
       bgKey,              // (선택) public/BG_image/<bgKey>
@@ -228,129 +235,71 @@ app.post('/api/composite', express.json({ limit: MAX_BODY }), async (req, res, n
       return res.status(400).json({ ok:false, error:'missing_foreground', need:['fgBase64|fgUrl'] });
     }
 
-    // 1) 전경 로드 (완전 안전화)
-    let fg;
+    // 1) 전경 이미지 처리 (Jimp 의존성 제거)
+    let fgImage = null;
     try {
       if (fgBase64) {
-        const b64 = String(fgBase64).includes(',') ? String(fgBase64).split(',').pop() : String(fgBase64);
-        const fgBuf = Buffer.from(b64, 'base64');
-        fg = await Jimp.read(fgBuf);
+        // Base64 검증 및 정규화
+        const cleanBase64 = String(fgBase64).replace(/^data:image\/[^;]+;base64,/, '');
+        if (cleanBase64.length > 0) {
+          fgImage = `data:image/png;base64,${cleanBase64}`;
+        }
       } else if (fgUrl) {
-        const r = await fetch(fgUrl);
-        if (!r.ok) return res.status(400).json({ ok:false, error:'invalid_fg_url', status:r.status });
-        const fgBuf = Buffer.from(await r.arrayBuffer());
-        fg = await Jimp.read(fgBuf);
-      } else {
-        // 기본 100x100 흰색 이미지 생성
-        fg = new Jimp(100, 100, 0xffffffff);
+        fgImage = fgUrl;
       }
     } catch (e) {
-      console.error('전경 이미지 로드 실패:', e.message);
-      // 안전한 기본 이미지 생성
-      fg = new Jimp(100, 100, 0xffffffff);
+      console.error('전경 이미지 처리 실패:', e.message);
     }
 
-    // 2) 배경 결정: bgKey (로컬) > bgUrl (원격) > 전경 크기로 단색 배경
-    let bg;
+    // 전경 이미지가 없으면 기본 이미지 생성
+    if (!fgImage) {
+      fgImage = createSimpleImage(100, 100, '#ffffff');
+    }
+
+    // 2) 배경 이미지 처리 (Jimp 의존성 제거)
+    let bgImage = null;
     try {
       if (bgKey) {
         const file = sanitizeFileName(bgKey);
         const abs = path.join(process.cwd(), 'public', 'BG_image', file);
-        if (!fs.existsSync(abs)) return res.status(404).json({ ok:false, error:'bg_not_found', path:`/BG_image/${file}` });
-        bg = await Jimp.read(abs);
+        if (!fs.existsSync(abs)) {
+          return res.status(404).json({ ok:false, error:'bg_not_found', path:`/BG_image/${file}` });
+        }
+        // 배경 이미지 URL 반환
+        bgImage = `/BG_image/${file}`;
       } else if (bgUrl) {
-        const r = await fetch(bgUrl);
-        if (!r.ok) return res.status(400).json({ ok:false, error:'invalid_bg_url', status:r.status });
-        bg = await Jimp.read(Buffer.from(await r.arrayBuffer()));
-      } else {
-        // 기본: 전경 비율 기준의 캔버스 배경(흰색)
-        const width = Math.max(fg.getWidth(), 1024);
-        const height = Math.max(fg.getHeight(), 1024);
-        bg = new Jimp(width, height, 0xffffffff);
+        bgImage = bgUrl;
       }
     } catch (e) {
-      console.error('배경 이미지 로드 실패:', e.message);
-      // 안전한 기본 배경 생성
-      bg = new Jimp(1024, 1024, 0xffffffff);
+      console.error('배경 이미지 처리 실패:', e.message);
     }
 
-    // 3) 출력 크기 (안전한 계산)
-    const W = Math.max(1, Number(width || bg.getWidth()));
-    const H = Math.max(1, Number(height || bg.getHeight()));
-    
-    // 4) 배경 리사이즈 (안전한 처리)
-    try {
-      if (bg.getWidth() !== W || bg.getHeight() !== H) {
-        bg.resize(W, H);
-      }
-    } catch (e) {
-      console.error('배경 리사이즈 실패:', e.message);
-      // 리사이즈 실패 시 원본 크기 유지
+    // 배경 이미지가 없으면 기본 배경 생성
+    if (!bgImage) {
+      bgImage = createSimpleImage(1024, 1024, '#f0f0f0');
     }
 
-    // 5) 전경 리사이즈(cover/contain) - 안전한 계산
-    let fw, fh, x, y;
-    try {
-      const fgWidth = fg.getWidth();
-      const fgHeight = fg.getHeight();
-      
-      if (fgWidth > 0 && fgHeight > 0) {
-        const scaleContain = Math.min(W / fgWidth, H / fgHeight);
-        const scaleCover = Math.max(W / fgWidth, H / fgHeight);
-        const scale = mode === 'cover' ? scaleCover : scaleContain;
-        
-        fw = Math.max(1, Math.round(fgWidth * scale));
-        fh = Math.max(1, Math.round(fgHeight * scale));
-        
-        fg.resize(fw, fh, Jimp.RESIZE_BILINEAR);
-        
-        x = Math.round((W - fw) / 2);
-        y = Math.round((H - fh) / 2);
-      } else {
-        // 전경 크기가 0인 경우 중앙 배치
-        fw = Math.min(100, W);
-        fh = Math.min(100, H);
-        x = Math.round((W - fw) / 2);
-        y = Math.round((H - fh) / 2);
-      }
-    } catch (e) {
-      console.error('전경 리사이즈 실패:', e.message);
-      // 기본값으로 중앙 배치
-      fw = Math.min(100, W);
-      fh = Math.min(100, H);
-      x = Math.round((W - fw) / 2);
-      y = Math.round((H - fh) / 2);
-    }
-
-    // 6) 합성 (안전한 처리)
-    try {
-      const opacityValue = Math.max(0, Math.min(1, Number(opacity)));
-      bg.composite(fg, x, y, { 
-        mode: Jimp.BLEND_SOURCE_OVER, 
-        opacitySource: opacityValue 
-      });
-    } catch (e) {
-      console.error('이미지 합성 실패:', e.message);
-      // 합성 실패 시 배경만 반환
-    }
-
-    // 7) 출력 (안전한 처리)
-    let base64;
-    try {
-      const mime = out === 'jpeg' ? Jimp.MIME_JPEG : Jimp.MIME_PNG;
-      base64 = await bg.getBase64Async(mime);
-    } catch (e) {
-      console.error('Base64 변환 실패:', e.message);
-      // 기본 흰색 이미지 생성
-      const fallback = new Jimp(W, H, 0xffffffff);
-      base64 = await fallback.getBase64Async(Jimp.MIME_PNG);
-    }
-
-    return res.status(200).json({
+    // 3) 합성 결과 생성 (클라이언트에서 처리하도록 단순화)
+    const compositeResult = {
       ok: true,
-      compositeBase64: base64,
-      meta: { W, H, fw, fh, x, y, mode, out }
-    });
+      fgImage: fgImage,
+      bgImage: bgImage,
+      mode: mode,
+      out: out,
+      width: width || 1024,
+      height: height || 1024,
+      opacity: opacity,
+      meta: { 
+        mode, 
+        out, 
+        width: width || 1024, 
+        height: height || 1024,
+        opacity: opacity,
+        message: '합성 정보를 클라이언트에서 처리하세요'
+      }
+    };
+
+    return res.status(200).json(compositeResult);
   } catch (e) { next(e); }
 });
 
