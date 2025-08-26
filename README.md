@@ -1,4 +1,66 @@
-# MeArt - AI-based Emotion Art Generator
+# MeArt - AI 기반 감정 아트 생성기
+
+AI 기반 감정 분석과 명화 스타일 합성을 통한 개인화된 아트 생성 웹 애플리케이션
+
+## 🚀 Railway 배포
+
+### Railway MCP Server 설정 (Cursor 통합)
+
+Railway 배포를 Cursor에서 직접 관리할 수 있도록 MCP Server를 설정했습니다.
+
+#### 1. Railway CLI 설치
+```bash
+npm install -g @railway/cli
+```
+
+#### 2. Railway 로그인
+```bash
+railway login
+```
+
+#### 3. MCP Server 설정 확인
+`.cursor/mcp.json` 파일이 이미 설정되어 있습니다:
+```json
+{
+  "mcpServers": {
+    "railway-mcp-server": {
+      "command": "npx",
+      "args": ["-y", "@railway/mcp-server"],
+      "env": {}
+    }
+  }
+}
+```
+
+#### 4. Cursor에서 Railway 도구 사용
+- Cursor를 재시작하면 Railway MCP Server가 도구 목록에 나타납니다
+- Railway 서비스 목록 조회, 배포, 환경변수 관리 등을 직접 수행할 수 있습니다
+
+#### 5. 토큰 기반 인증 (선택사항)
+CLI 로그인 대신 토큰을 사용하려면 `.cursor/mcp.json`에서 주석을 해제하고 토큰을 설정하세요:
+```json
+{
+  "mcpServers": {
+    "railway-mcp-server": {
+      "command": "npx",
+      "args": ["-y", "@railway/mcp-server"],
+      "env": {
+        "RAILWAY_API_TOKEN": "<your-token>",
+        "RAILWAY_PROJECT_ID": "<project-id>"
+      }
+    }
+  }
+}
+```
+
+### 배포 상태 확인
+```bash
+# 로컬 테스트
+npm run railway-selftest
+
+# Railway CLI로 배포 상태 확인
+railway status
+```
 
 ## 🎨 About
 
