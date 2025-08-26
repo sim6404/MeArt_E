@@ -1,4 +1,4 @@
-// server.js — Railway 하드닝 + 필수 라우트 + JSON 에러 통일
+// server.js — Railway 하드닝 + 필수 라우트 + JSON 에러 통일 + 진단 시스템
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
@@ -6,7 +6,30 @@ const compression = require('compression');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const Jimp = require('jimp');
+
+// == 진단 시스템: 버전/라우트/캐시 정보 ==
+const GIT_REV = process.env.GIT_REV || process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || 'unknown';
+const BUILD_AT = process.env.BUILD_AT || new Date().toISOString();
+
+function listRoutes(app) {
+  const out = [];
+  app._router?.stack?.forEach((m) => {
+    if (m.route) {
+      const methods = Object.keys(m.route.methods).filter(Boolean).map(x => x.toUpperCase()).join(',');
+      out.push({ methods, path: m.route.path });
+    } else if (m.name === 'router' && m.handle?.stack) {
+      m.handle.stack.forEach((h) => {
+        if (h.route) {
+          const methods = Object.keys(h.route.methods).map(x => x.toUpperCase()).join(',');
+          out.push({ methods, path: (m.regexp?.fast_slash ? '' : (m?.regexp?.toString().includes('/api') ? '/api' : '')) + h.route.path });
+        }
+      });
+    }
+  });
+  return out;
+}
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = '0.0.0.0';
@@ -17,11 +40,28 @@ const app = express();
 app.set('trust proxy', true);
 app.disable('x-powered-by');
 
+// == 0) 공통: 최상단 미들웨어에 삽입 ==
+app.use((req, res, next) => {
+  const tid = (req.headers['x-trace-id'] || crypto.randomBytes(8).toString('hex'));
+  res.setHeader('X-Trace-Id', tid);
+  req.__tid = tid;
+  next();
+});
+
 app.use(morgan('combined'));
 app.use(cors({ origin: ORIGIN === '*' ? true : ORIGIN, credentials: ORIGIN !== '*' }));
 app.use(compression());
 app.use(express.json({ limit: MAX_BODY }));
 app.use(express.urlencoded({ extended: true, limit: MAX_BODY }));
+
+// == 2) HTML/엔트리 no-cache (디버그시 캐시 무력화) ==
+app.use((req, res, next) => {
+  if (req.method === 'GET' && (req.path === '/' || req.path.endsWith('.html'))) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+  }
+  next();
+});
 
 // ====== BG_image 정적 서빙 + 관대한 리졸버 ======
 const BG_DIR = path.join(process.cwd(), 'public', 'BG_image');
@@ -97,6 +137,26 @@ app.get('/BG_image/:file', (req, res, next) => {
 
 // 기존 정적 파일 서빙 (BG_image 제외)
 app.use(express.static('public', { maxAge: 0, etag: false }));
+
+// == 1) 버전/라우트/캐시 진단 ==
+app.get('/__version', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ ok: true, git: GIT_REV, buildAt: BUILD_AT, node: process.version, env: process.env.NODE_ENV, tid: req.__tid });
+});
+
+app.get('/__routes', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ ok: true, routes: listRoutes(app), tid: req.__tid });
+});
+
+// == 3) 정적 BG_image 존재 점검 ==
+app.get('/__bg-exists', (req, res) => {
+  const name = (req.query.name || '').toString();
+  const file = path.join(process.cwd(), 'public', 'BG_image', name);
+  const ok = !!(name && fs.existsSync(file));
+  console.log('🔍 BG exists check:', { name, file, exists: ok });
+  res.json({ ok, file: `/public/BG_image/${name}`, tid: req.__tid });
+});
 
 let isReady = false;
 

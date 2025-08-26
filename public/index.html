@@ -15,6 +15,30 @@
     <script src="api.js"></script>
     <script src="net-utils.js"></script>
     
+    <!-- 🔧 디버그 시스템 + SW 무력화 + 상태머신 가드 제거 -->
+    <script>
+    (function(){
+      // ▼ 1) SW 강제 해제: ?debug=1 또는 window.__CONFIG__.FORCE_SW_DISABLE
+      const qs = new URLSearchParams(location.search);
+      if ('serviceWorker' in navigator && (qs.get('debug')==='1' || (window.__CONFIG__&&window.__CONFIG__.FORCE_SW_DISABLE))) {
+        navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister()))).then(()=>caches?.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k))))).then(()=>console.warn('[SW] unregistered + caches cleared'));
+      }
+      // ▼ 2) 전역 오류/거부 트랩
+      window.addEventListener('error', e=>console.error('[window.error]', e.error||e.message));
+      window.addEventListener('unhandledrejection', e=>console.error('[unhandledrejection]', e.reason));
+      // ▼ 3) 디버그 HUD
+      if (qs.get('debug')==='1') {
+        const hud = document.createElement('div');
+        hud.id='hud'; hud.style.cssText='position:fixed;right:8px;bottom:8px;z-index:99999;background:#111;color:#0f0;font:12px/1.4 monospace;padding:8px;border-radius:8px;max-width:40vw;opacity:.9';
+        hud.innerHTML = '<b>DEBUG</b><div id="hudc"></div>';
+        document.body.appendChild(hud);
+        window.__HUD = (msg)=>{ const c=document.getElementById('hudc'); const p=document.createElement('div'); p.textContent=msg; c.prepend(p); };
+        fetch('/__version').then(r=>r.json()).then(j=>__HUD(`version ${j.git} @ ${j.buildAt}`)).catch(()=>{});
+        fetch('/__routes').then(r=>r.json()).then(j=>__HUD('routes '+(j.routes||[]).length)).catch(()=>{});
+      }
+    })();
+    </script>
+    
     <!-- 🔧 서비스워커 등록 (Railway 배포 최적화) -->
     <script>
     if ('serviceWorker' in navigator) {
@@ -3172,7 +3196,7 @@
             previewImage.style.minHeight = '120px';
 
             try {
-                // 🔧 새로운 합성 API 호출
+                // 🔧 새로운 합성 API 호출 (3초 폴백 포함)
                 const fgBase64 = bgRemovedBase64 || originalBase64;
                 const bgKey = backgroundImage.replace('/BG_image/', '');
                 
@@ -3182,12 +3206,20 @@
                     mode: 'contain' 
                 });
                 
-                const result = await window.callComposite({
-                    fgBase64: fgBase64,
-                    bgKey: bgKey,
-                    mode: 'contain',
-                    out: 'png'
-                });
+                window.__HUD && __HUD('composite:start');
+                const t0 = Date.now();
+                
+                const result = await Promise.race([
+                    window.callComposite({
+                        fgBase64: fgBase64,
+                        bgKey: bgKey,
+                        mode: 'contain',
+                        out: 'png'
+                    }),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout:composite>3s')), 3000))
+                ]);
+                
+                window.__HUD && __HUD(`composite:ok ${Date.now()-t0}ms`);
                 
                 console.log('🎨 합성 API 응답:', result);
                 
@@ -3259,10 +3291,11 @@
                 }
             } catch (error) {
                 console.error('❌ 합성 실패:', error.message);
+                window.__HUD && __HUD('composite:fail->fallback');
                 
-                // 🔧 교착 방지: 실패해도 원본 이미지로 계속 진행
+                // 🔧 교착 방지: 실패해도 원본 이미지로 즉시 진행
                 if (originalBase64) {
-                    console.log('🔄 원본 이미지로 계속 진행');
+                    console.log('🔄 원본 이미지로 즉시 진행');
                     previewImage.src = originalBase64;
                     previewImage.style.display = 'block';
                     lastNobgPath = originalBase64;
