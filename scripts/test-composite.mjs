@@ -11,7 +11,7 @@ const postJson = (p,d) => fetch(ORIGIN+p, {
 (async () => {
     console.log('🚀 합성 API 셀프테스트 시작:', ORIGIN);
     
-    // 테스트용 간단한 이미지 (실제로는 서버에서 기본 이미지 생성)
+    // 테스트용 간단한 이미지 (더 안전한 1x1 PNG)
     const testImage = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
     
     console.log('📋 테스트 1: 기본 합성 (전경 + 배경)');
