@@ -85,10 +85,28 @@ export async function callAnalyzeEmotion({ file, imageBase64 }) {
   }
 }
 
+export async function callComposite({ fgBase64, fgUrl, bgKey, bgUrl, mode='contain', out='png' }) {
+  const url = `${apiBase()}/api/composite`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type':'application/json', 'accept':'application/json' },
+    body: JSON.stringify({ fgBase64, fgUrl, bgKey, bgUrl, mode, out })
+  });
+  const text = await res.text();
+  try {
+    const json = JSON.parse(text);
+    if (!res.ok || json?.ok === false) throw new Error(json?.error || `composite_failed_${res.status}`);
+    return json;
+  } catch {
+    throw new Error(`composite non-JSON (${res.status}): ${text.slice(0,180)}`);
+  }
+}
+
 // 전역으로 노출 (기존 코드와 호환)
 if (typeof window !== 'undefined') {
   window.apiBase = apiBase;
   window.waitForReady = waitForReady;
   window.callRemoveBg = callRemoveBg;
   window.callAnalyzeEmotion = callAnalyzeEmotion;
+  window.callComposite = callComposite;
 }

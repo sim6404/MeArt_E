@@ -16,17 +16,19 @@
               "selftest": "node scripts/selftest.mjs",
               "railway-selftest": "node scripts/railway-selftest.mjs",
               "sw-selftest": "node scripts/sw-selftest.mjs",
+              "test-composite": "node scripts/test-composite.mjs",
     "build": "npm run create-placeholders",
     "start": "node server.js",
     "postinstall": "npm run create-placeholders"
   },
-  "dependencies": {
-    "express": "4.19.2",
-    "cors": "2.8.5",
-    "morgan": "1.10.0",
-    "compression": "1.7.4",
-    "multer": "1.4.5-lts.1"
-  },
+                "dependencies": {
+                "express": "4.19.2",
+                "cors": "2.8.5",
+                "morgan": "1.10.0",
+                "compression": "1.7.4",
+                "multer": "1.4.5-lts.1",
+                "jimp": "0.22.10"
+              },
   "engines": { 
     "node": ">=18" 
   },

@@ -2332,6 +2332,16 @@
                 reader.onerror = error => reject(error);
             });
         }
+        
+        // Blob을 Base64로 변환하는 함수
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(blob);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
 
         // 배경 합성 함수 (원본 비율/크기 유지)
         async function compositeBackground(foregroundImage, backgroundImage) {
@@ -3121,42 +3131,36 @@
             }
         }
 
-        // 1단계: 배경 제거 + 기본 합성
+        // 1단계: 전경 + 배경 합성 (배경 제거 선행조건 제거)
         async function applyComposite(artworkId, backgroundImage) {
             console.log('🎨 합성 시작:', { artworkId, backgroundImage });
             
-            // 🔧 강력한 교착 방지: nobgBlob이 없어도 원본 이미지로 진행
-            if (!nobgBlob) {
-                console.log('⚠️ nobgBlob이 없음 — 원본 이미지로 합성 진행');
-                if (!currentFile) {
-                    showMessage('이미지를 먼저 업로드해주세요.', 'error');
-                    return;
-                }
-                // 원본 이미지를 nobgBlob으로 사용
-                nobgBlob = currentFile;
-                console.log('✅ 원본 이미지를 nobgBlob으로 설정:', currentFile.name, currentFile.size);
-                showMessage('배경 제거 없이 원본 이미지로 합성을 진행합니다.', 'info');
+            // 🔧 상태 관리: 원본 이미지와 배경 제거된 이미지 중 선택
+            let originalBase64 = null;
+            let bgRemovedBase64 = null;
+            
+            // 원본 이미지 준비
+            if (currentFile) {
+                originalBase64 = await fileToBase64(currentFile);
+                console.log('✅ 원본 이미지 준비:', currentFile.name, currentFile.size);
             }
             
-            // 🔧 추가 검증: nobgBlob이 유효한지 확인
-            if (!nobgBlob || nobgBlob.size === 0) {
-                console.log('⚠️ nobgBlob이 유효하지 않음 — 원본 이미지로 재설정');
-                if (currentFile) {
-                    nobgBlob = currentFile;
-                    console.log('✅ 원본 이미지로 nobgBlob 재설정');
-                } else {
-                    showMessage('이미지를 먼저 업로드해주세요.', 'error');
-                    return;
-                }
+            // 배경 제거된 이미지가 있으면 사용, 없으면 원본 사용
+            if (nobgBlob) {
+                bgRemovedBase64 = await blobToBase64(nobgBlob);
+                console.log('✅ 배경 제거된 이미지 사용');
+            } else {
+                console.log('⚠️ 배경 제거된 이미지 없음 — 원본 이미지 사용');
             }
             
-            // 🔧 최종 검증: 모든 필수 데이터 확인
-            if (!nobgBlob || !backgroundImage) {
-                console.error('❌ 필수 데이터 누락:', { 
-                    hasNobgBlob: !!nobgBlob, 
-                    hasBackgroundImage: !!backgroundImage 
-                });
-                showMessage('합성에 필요한 데이터가 누락되었습니다.', 'error');
+            // 🔧 필수 데이터 검증
+            if (!originalBase64) {
+                showMessage('이미지를 먼저 업로드해주세요.', 'error');
+                return;
+            }
+            
+            if (!backgroundImage) {
+                showMessage('배경 이미지를 선택해주세요.', 'error');
                 return;
             }
 
@@ -3168,53 +3172,35 @@
             previewImage.style.minHeight = '120px';
 
             try {
-                const formData = new FormData();
-                formData.append('image', nobgBlob, 'foreground_nobg.png');
-                formData.append('backgroundPath', backgroundImage);
-                formData.append('emotion', currentEmotion || 'neutral');
-
-                const headers = {};
-                if (authToken) {
-                    headers['Authorization'] = `Bearer ${authToken}`;
-                }
-
-                // 🔧 올바른 합성 API 호출
-                const response = await fetch('/api/composite', {
-                    method: 'POST',
-                    headers,
-                    body: formData
+                // 🔧 새로운 합성 API 호출
+                const fgBase64 = bgRemovedBase64 || originalBase64;
+                const bgKey = backgroundImage.replace('/BG_image/', '');
+                
+                console.log('🎨 합성 API 호출:', { 
+                    hasBgRemoved: !!bgRemovedBase64, 
+                    bgKey, 
+                    mode: 'contain' 
                 });
-
-                const result = await response.json();
+                
+                const result = await window.callComposite({
+                    fgBase64: fgBase64,
+                    bgKey: bgKey,
+                    mode: 'contain',
+                    out: 'png'
+                });
+                
                 console.log('🎨 합성 API 응답:', result);
                 
-                if (response.ok && result.ok) {
-                    // 🎯 nobgPath 전역 저장
-                    lastNobgPath = result.nobgPath;
-                    console.log('🔄 nobgPath 저장:', lastNobgPath);
+                if (result.ok && result.compositeBase64) {
+                    console.log('✅ 합성 성공:', result.meta);
                     
-                    // 1단계 결과 표시 (미리보기)
-                    // 🎯 Base64 이미지 우선 사용 (캐시 문제 완전 우회)
-                    if (result.imageBase64) {
-                        console.log('🚀 Base64 이미지 직접 로딩:', result.imageBase64.substring(0, 50) + '...');
-                        previewImage.src = result.imageBase64;
-                        previewImage.style.display = 'block';
-                    } else {
-                        // 폴백: 기존 URL 방식
-                        const timestamp = Date.now();
-                        const random = Math.random().toString(36).substr(2, 9);
-                        const cacheBuster = `?nocache=${timestamp}&r=${random}&reload=1&force=${Math.floor(Math.random() * 1000000)}`;
-                        const imageUrl = result.processedImageUrl + cacheBuster;
-                        console.log('⚠️ Base64 없음, URL 방식 사용:', imageUrl);
-                        
-                        previewImage.src = '';
-                        previewImage.style.display = 'none';
-                        
-                        setTimeout(() => {
-                            previewImage.src = imageUrl;
-                            previewImage.style.display = 'block';
-                        }, 100);
-                    }
+                    // 1단계 결과 표시 (Base64 이미지 직접 사용)
+                    previewImage.src = result.compositeBase64;
+                    previewImage.style.display = 'block';
+                    
+                    // 🎯 합성 메타데이터 저장
+                    lastNobgPath = result.compositeBase64;
+                    console.log('🔄 합성 결과 저장:', result.compositeBase64.substring(0, 50) + '...');
                     previewImage.onload = () => {
                         const logMsg = result.imageBase64 ? 'Base64 이미지' : result.processedImageUrl;
                         console.log('✅ 미리보기 이미지 로드 성공:', logMsg);
@@ -3272,7 +3258,24 @@
                     throw new Error(result.error || '배경 합성에 실패했습니다.');
                 }
             } catch (error) {
-                showMessage('배경 합성 중 오류가 발생했습니다: ' + error.message, 'error');
+                console.error('❌ 합성 실패:', error.message);
+                
+                // 🔧 교착 방지: 실패해도 원본 이미지로 계속 진행
+                if (originalBase64) {
+                    console.log('🔄 원본 이미지로 계속 진행');
+                    previewImage.src = originalBase64;
+                    previewImage.style.display = 'block';
+                    lastNobgPath = originalBase64;
+                    
+                    showMessage('합성에 실패하여 원본 이미지로 계속 진행합니다. 재시도 가능.', 'warning');
+                    
+                    // 재시도 버튼 표시
+                    const retryBtn = document.getElementById('retryBgRemovalBtn');
+                    if (retryBtn) retryBtn.style.display = 'inline-flex';
+                } else {
+                    showMessage('합성 중 오류가 발생했습니다: ' + error.message, 'error');
+                }
+                
                 previewImage.style.background = '';
                 previewImage.style.minHeight = '';
             } finally {

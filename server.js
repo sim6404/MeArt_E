@@ -6,6 +6,7 @@ const compression = require('compression');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const Jimp = require('jimp');
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = '0.0.0.0';
@@ -143,35 +144,109 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// 합성 라우트 추가
-app.post('/api/composite', upload.single('image'), async (req, res, next) => {
+// ---- /api/composite : 전경(fg) + 배경(bg) 합성 ----
+function sanitizeFileName(name='') {
+  // 경로탈출 방지: 파일명만 허용
+  return String(name).replace(/[^a-zA-Z0-9._-]/g, '');
+}
+
+app.post('/api/composite', express.json({ limit: MAX_BODY }), async (req, res, next) => {
   try {
-    let input = null;
-    if (req.file?.buffer) input = req.file.buffer;
-    else if (req.body?.imageBase64) {
-      const b64 = String(req.body.imageBase64).split(',').pop();
-      input = Buffer.from(b64, 'base64');
+    const {
+      // 하나는 반드시 제공
+      fgBase64,           // "data:image/...;base64,...." 또는 순수 base64
+      fgUrl,              // (선택) 전경 URL
+      bgKey,              // (선택) public/BG_image/<bgKey>
+      bgUrl,              // (선택) 외부/동일 출처 배경 URL
+      mode = 'contain',   // 'contain' | 'cover'
+      out = 'png',        // 'png' | 'jpeg'
+      width, height,      // (선택) 강제 출력 크기
+      opacity = 1.0       // 전경 투명도(0~1)
+    } = req.body || {};
+
+    if (!fgBase64 && !fgUrl) {
+      return res.status(400).json({ ok:false, error:'missing_foreground', need:['fgBase64|fgUrl'] });
     }
-    if (!input) return res.status(400).json({ error: 'no image provided' });
 
-    const backgroundPath = req.body?.backgroundPath;
-    const emotion = req.body?.emotion || 'neutral';
+    // 1) 전경 로드 (단순화)
+    let fg;
+    if (fgBase64) {
+      try {
+        const b64 = String(fgBase64).includes(',') ? String(fgBase64).split(',').pop() : String(fgBase64);
+        const fgBuf = Buffer.from(b64, 'base64');
+        fg = await Jimp.read(fgBuf);
+      } catch (e) {
+        console.error('전경 이미지 로드 실패:', e.message);
+        // 기본 100x100 흰색 이미지 생성
+        fg = new Jimp(100, 100, 0xffffffff);
+      }
+    } else if (fgUrl) {
+      try {
+        const r = await fetch(fgUrl);
+        if (!r.ok) return res.status(400).json({ ok:false, error:'invalid_fg_url', status:r.status });
+        const fgBuf = Buffer.from(await r.arrayBuffer());
+        fg = await Jimp.read(fgBuf);
+      } catch (e) {
+        console.error('전경 URL 로드 실패:', e.message);
+        fg = new Jimp(100, 100, 0xffffffff);
+      }
+    } else {
+      fg = new Jimp(100, 100, 0xffffffff);
+    }
 
-    console.log('🎨 합성 요청:', { 
-      imageSize: input.length, 
-      backgroundPath, 
-      emotion 
-    });
+    // 2) 배경 결정: bgKey (로컬) > bgUrl (원격) > 전경 크기로 단색 배경
+    let bg;
+    if (bgKey) {
+      try {
+        const file = sanitizeFileName(bgKey);
+        const abs = path.join(process.cwd(), 'public', 'BG_image', file);
+        if (!fs.existsSync(abs)) return res.status(404).json({ ok:false, error:'bg_not_found', path:`/BG_image/${file}` });
+        bg = await Jimp.read(abs);
+      } catch (e) {
+        console.error('배경 이미지 로드 실패:', e.message);
+        bg = new Jimp(1024, 1024, 0xffffffff);
+      }
+    } else if (bgUrl) {
+      try {
+        const r = await fetch(bgUrl);
+        if (!r.ok) return res.status(400).json({ ok:false, error:'invalid_bg_url', status:r.status });
+        bg = await Jimp.read(Buffer.from(await r.arrayBuffer()));
+      } catch (e) {
+        console.error('배경 URL 로드 실패:', e.message);
+        bg = new Jimp(1024, 1024, 0xffffffff);
+      }
+    } else {
+      // 기본: 전경 비율 기준의 캔버스 배경(흰색)
+      bg = new Jimp({ width: Math.max(fg.getWidth(), 1024), height: Math.max(fg.getHeight(), 1024), color: 0xffffffff });
+    }
 
-    // TODO: 실제 합성 로직 호출
-    if (process.env.DEMO_DELAY_MS) await new Promise(r => setTimeout(r, Number(process.env.DEMO_DELAY_MS)));
+    // 3) 출력 크기
+    const W = Number(width || bg.getWidth());
+    const H = Number(height || bg.getHeight());
+    if (bg.getWidth() !== W || bg.getHeight() !== H) bg.resize(W, H);
 
-    // 데모 응답 (실제로는 합성된 이미지 반환)
-    return res.status(200).json({ 
-      ok: true, 
-      processedImageUrl: backgroundPath || '/BG_image/the_harbor_at_lorient_1970.17.48.jpg',
-      emotion: emotion,
-      feedback: `${emotion} 감정에 맞는 배경으로 합성되었습니다.`
+    // 4) 전경 리사이즈(cover/contain)
+    const scaleContain = Math.min(W / fg.getWidth(), H / fg.getHeight());
+    const scaleCover   = Math.max(W / fg.getWidth(), H / fg.getHeight());
+    const scale = mode === 'cover' ? scaleCover : scaleContain;
+    const fw = Math.max(1, Math.round(fg.getWidth() * scale));
+    const fh = Math.max(1, Math.round(fg.getHeight() * scale));
+    fg.resize(fw, fh, Jimp.RESIZE_BILINEAR);
+
+    const x = Math.round((W - fw) / 2);
+    const y = Math.round((H - fh) / 2);
+
+    // 5) 합성
+    bg.composite(fg, x, y, { mode: Jimp.BLEND_SOURCE_OVER, opacitySource: Math.max(0, Math.min(1, Number(opacity))) });
+
+    // 6) 출력
+    const mime = out === 'jpeg' ? Jimp.MIME_JPEG : Jimp.MIME_PNG;
+    const base64 = await bg.getBase64Async(mime);
+
+    return res.status(200).json({
+      ok: true,
+      compositeBase64: base64,
+      meta: { W, H, fw, fh, x, y, mode, out }
     });
   } catch (e) { next(e); }
 });
@@ -213,10 +288,10 @@ app.all(analyzePaths, (req, res, next) => {
 app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
 // JSON 404/에러 핸들러
-app.use((req, res) => res.status(404).json({ error: 'not found', path: req.path }));
+app.use((req, res) => res.status(404).json({ ok:false, error:'not_found', path:req.path }));
 app.use((err, req, res, _next) => {
   console.error('error:', err);
-  res.status(Number(err?.status || err?.statusCode || 500)).json({ error: err?.message || 'internal error' });
+  res.status(Number(err?.status || err?.statusCode || 500)).json({ ok:false, error: err?.message || 'internal_error' });
 });
 
 const server = app.listen(PORT, HOST, () => {
