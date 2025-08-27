@@ -15,6 +15,146 @@ const GIT_REV = process.env.GIT_REV || process.env.RAILWAY_GIT_COMMIT_SHA || pro
 })();
 const BUILD_AT = process.env.BUILD_AT || new Date().toISOString();
 
+// 감정별 명화 데이터
+const ARTWORKS_BY_EMOTION = {
+  happy: [
+    {
+      id: 'hampton',
+      title: '초록정원',
+      artist: 'hampton',
+      image: '/BG_image/hampton_court_green_1970.17.53.jpg',
+      thumbnail: '/BG_image/hampton_court_green_1970.17.53.jpg',
+      path: '/BG_image/hampton_court_green_1970.17.53.jpg'
+    },
+    {
+      id: 'normandy',
+      title: '노르망디 해변',
+      artist: 'bessin',
+      image: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg',
+      thumbnail: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg',
+      path: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg'
+    },
+    {
+      id: 'farmhouse_provence',
+      title: '프로방스의 농가',
+      artist: 'Vincent van Gogh',
+      image: '/BG_image/farmhouse_in_provence_1970.17.34.jpg',
+      thumbnail: '/BG_image/farmhouse_in_provence_1970.17.34.jpg',
+      path: '/BG_image/farmhouse_in_provence_1970.17.34.jpg'
+    },
+    {
+      id: 'harbor_lorient',
+      title: '로리앙 항구',
+      artist: 'Berthe Morisot',
+      image: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg',
+      thumbnail: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg',
+      path: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg'
+    }
+  ],
+  sad: [
+    {
+      id: 'hampton',
+      title: '초록정원',
+      artist: 'hampton',
+      image: '/BG_image/hampton_court_green_1970.17.53.jpg',
+      thumbnail: '/BG_image/hampton_court_green_1970.17.53.jpg',
+      path: '/BG_image/hampton_court_green_1970.17.53.jpg'
+    },
+    {
+      id: 'normandy',
+      title: '노르망디 해변',
+      artist: 'bessin',
+      image: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg',
+      thumbnail: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg',
+      path: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg'
+    },
+    {
+      id: 'farmhouse_provence',
+      title: '프로방스의 농가',
+      artist: 'Vincent van Gogh',
+      image: '/BG_image/farmhouse_in_provence_1970.17.34.jpg',
+      thumbnail: '/BG_image/farmhouse_in_provence_1970.17.34.jpg',
+      path: '/BG_image/farmhouse_in_provence_1970.17.34.jpg'
+    },
+    {
+      id: 'harbor_lorient',
+      title: '로리앙 항구',
+      artist: 'Berthe Morisot',
+      image: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg',
+      thumbnail: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg',
+      path: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg'
+    }
+  ],
+  angry: [
+    {
+      id: 'hampton',
+      title: '초록정원',
+      artist: 'hampton',
+      image: '/BG_image/hampton_court_green_1970.17.53.jpg',
+      thumbnail: '/BG_image/hampton_court_green_1970.17.53.jpg',
+      path: '/BG_image/hampton_court_green_1970.17.53.jpg'
+    },
+    {
+      id: 'normandy',
+      title: '노르망디 해변',
+      artist: 'bessin',
+      image: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg',
+      thumbnail: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg',
+      path: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg'
+    },
+    {
+      id: 'farmhouse_provence',
+      title: '프로방스의 농가',
+      artist: 'Vincent van Gogh',
+      image: '/BG_image/farmhouse_in_provence_1970.17.34.jpg',
+      thumbnail: '/BG_image/farmhouse_in_provence_1970.17.34.jpg',
+      path: '/BG_image/farmhouse_in_provence_1970.17.34.jpg'
+    },
+    {
+      id: 'harbor_lorient',
+      title: '로리앙 항구',
+      artist: 'Berthe Morisot',
+      image: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg',
+      thumbnail: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg',
+      path: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg'
+    }
+  ],
+  neutral: [
+    {
+      id: 'hampton',
+      title: '초록정원',
+      artist: 'hampton',
+      image: '/BG_image/hampton_court_green_1970.17.53.jpg',
+      thumbnail: '/BG_image/hampton_court_green_1970.17.53.jpg',
+      path: '/BG_image/hampton_court_green_1970.17.53.jpg'
+    },
+    {
+      id: 'normandy',
+      title: '노르망디 해변',
+      artist: 'bessin',
+      image: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg',
+      thumbnail: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg',
+      path: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg'
+    },
+    {
+      id: 'farmhouse_provence',
+      title: '프로방스의 농가',
+      artist: 'Vincent van Gogh',
+      image: '/BG_image/farmhouse_in_provence_1970.17.34.jpg',
+      thumbnail: '/BG_image/farmhouse_in_provence_1970.17.34.jpg',
+      path: '/BG_image/farmhouse_in_provence_1970.17.34.jpg'
+    },
+    {
+      id: 'harbor_lorient',
+      title: '로리앙 항구',
+      artist: 'Berthe Morisot',
+      image: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg',
+      thumbnail: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg',
+      path: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg'
+    }
+  ]
+};
+
 function listRoutes(app) {
   const out = [];
   app._router?.stack?.forEach((m) => {
@@ -307,7 +447,10 @@ app.post('/api/composite', express.json({ limit: MAX_BODY }), async (req, res, n
         height: height || 1024,
         opacity: opacity,
         message: '합성 정보를 클라이언트에서 처리하세요'
-      }
+      },
+      // 기본 명화 추천 (감정 정보가 없으므로 neutral)
+      artworkRecommendations: ARTWORKS_BY_EMOTION.neutral,
+      emotion: 'neutral'
     };
 
     return res.status(200).json(compositeResult);
@@ -334,12 +477,26 @@ app.post(analyzePaths, uploadAnalyze.single('image'), async (req, res, next) => 
       scores: { neutral: 0.9, happy: 0.05, sad: 0.03, angry: 0.02 },
     };
 
+    // 감정에 따른 명화 추천
+    const emotionKey = {
+      'happiness': 'happy',
+      'sadness': 'sad',
+      'anger': 'angry',
+      'surprise': 'neutral',
+      'fear': 'neutral',
+      'disgust': 'neutral',
+      'neutral': 'neutral'
+    }[result.emotion] || 'neutral';
+
+    const artworkRecommendations = ARTWORKS_BY_EMOTION[emotionKey] || ARTWORKS_BY_EMOTION.neutral;
+
     res.set('Cache-Control','no-store');
     return res.status(200).json({
       ok: true,
       source,
       result,
-      emotion: 'neutral' // 클라이언트 호환성을 위해 추가
+      emotion: 'neutral', // 클라이언트 호환성을 위해 추가
+      artworkRecommendations: artworkRecommendations
     });
   } catch (e) { next(e); }
 });

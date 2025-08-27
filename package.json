@@ -19,6 +19,8 @@
               "test-composite": "node scripts/test-composite.mjs",
     "build": "npm run create-placeholders",
     "start": "node server.js",
+    "restart:win": "powershell -ExecutionPolicy Bypass -File scripts\\restart.ps1 -Port 3000 -Start \"npm run start\" -Health \"http://localhost:3000/healthz\" -TimeoutSec 60 -LogDir \"logs\"",
+    "restart:node": "node scripts/restart.mjs",
     "postinstall": "npm run create-placeholders"
   },
                 "dependencies": {
