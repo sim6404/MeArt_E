@@ -6,6 +6,10 @@
     <title>MeArt - AI 아트 생성기</title>
     <!-- Google Fonts: Pretendard, Inter, Noto Sans 등 -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- 전역 플래그 설정 -->
+    <script>
+      window.__CONFIG__ = { FORCE_SW_DISABLE: true, BUILD_ID: Date.now().toString(36) };
+    </script>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
@@ -20,8 +24,8 @@
       window.commitPreviewAtomic = commitPreviewAtomic;
       installUndefinedFetchGuardOnce();
     </script>
-    <script src="api.js?v=2"></script>
-    <script src="net-utils.js?v=2"></script>
+    <script src="api.js?v=<%= window.__CONFIG__.BUILD_ID %>"></script>
+    <script src="net-utils.js?v=<%= window.__CONFIG__.BUILD_ID %>"></script>
     
     <!-- 🔧 디버그 시스템 + SW 무력화 + 상태머신 가드 제거 -->
     <script>
@@ -79,38 +83,26 @@
     
     <!-- 🔧 서비스워커 등록 (Railway 배포 최적화) -->
     <script>
-    if ('serviceWorker' in navigator) {
+    if ('serviceWorker' in navigator && !(window.__CONFIG && window.__CONFIG.FORCE_SW_DISABLE)) {
       (async () => {
         try {
-          // 구 캐시 정리 (Render→Railway 전환 후)
           const keys = await caches.keys();
-          for (const k of keys) {
-            if (/meart-|render/i.test(k)) {
-              console.log('🧹 구 캐시 삭제:', k);
-              await caches.delete(k);
-            }
-          }
-          
+          for (const k of keys) { if (/meart-|render|railway/i.test(k)) await caches.delete(k); }
           const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-          // 새 SW가 오면 교체
           if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
           reg.addEventListener('updatefound', () => {
             const sw = reg.installing;
             if (!sw) return;
             sw.addEventListener('statechange', () => {
-              if (sw.state === 'installed' && navigator.serviceWorker.controller) {
-                // 강제 새로고침으로 구 캐시/구 오리진 문제 제거
-                location.reload();
-              }
+              if (sw.state === 'installed' && navigator.serviceWorker.controller) location.reload();
             });
           });
-          navigator.serviceWorker.addEventListener('message', (e) => {
-            if (e.data === 'reload') location.reload();
-          });
-        } catch (e) {
-          console.warn('SW register failed', e);
-        }
+          navigator.serviceWorker.addEventListener('message', (e) => { if (e.data === 'reload') location.reload(); });
+        } catch (e) { console.warn('SW register failed', e); }
       })();
+    } else {
+      // 디버그 모드: 모든 캐시 삭제
+      caches?.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
     }
     </script>
     
@@ -3039,83 +3031,49 @@
             displayArtworkRecommendations(ARTWORKS_BY_EMOTION[key], key);
         }
 
+        // 유니폼 렌더링 (신형/구형 모두 지원)
         function displayArtworkRecommendations(artworks, emotion) {
-            const emotionText = {
-                'happy': '기쁨',
-                'happiness': '기쁨',
-                'sad': '슬픔',
-                'sadness': '슬픔',
-                'angry': '분노',
-                'anger': '분노',
-                'surprised': '놀람',
-                'surprise': '놀람',
-                'fear': '두려움',
-                'disgust': '혐오',
-                'neutral': '중립'
-            };
-
             const container = document.getElementById('artworkRecommendationsContainer');
-            
-            // 서버에서 받은 새로운 형식 지원
-            if (artworks && artworks.length > 0 && artworks[0].thumbnail) {
-                console.log('🎨 썸네일 기반 명화 추천 표시:', artworks);
+            if (!Array.isArray(artworks) || artworks.length === 0) {
                 container.innerHTML = `
                     <div class="artwork-recommendations">
-                        <h3>🎨 ${emotionText[emotion] || emotion}에 어울리는 명화 추천</h3>
-                        <div class="artwork-grid">
-                            ${artworks.map((artwork, index) => `
-                                <div class="artwork-item" onclick="selectArtworkByPath('${artwork.path}')">
-                                    <img src="${artwork.thumbnail}" 
-                                         alt="${artwork.title}" 
-                                         class="artwork-thumbnail loading"
-                                         loading="lazy"
-                                         data-original="${artwork.path}"
-                                         data-thumbnail="${artwork.thumbnail}"
-                                         onerror="handleThumbnailError(this, '${artwork.path}')"
-                                         onload="handleThumbnailLoad(this)"
-                                         ondblclick="loadOriginalImage(this, '${artwork.path}')">
-                                    <div class="artwork-info">
-                                        <h4>${artwork.title}</h4>
-                                        <p>${artwork.artist}</p>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                        <p style="text-align: center; color: var(--text-tertiary); font-size: 0.75rem; margin-top: var(--space-sm);">
-                            💡 명화를 더블클릭하면 고해상도 이미지를 볼 수 있습니다
-                        </p>
-                    </div>
-                `;
-            } else if (artworks && artworks.length > 0) {
-                // 기존 형식 지원 (하위 호환성)
-                console.log('🎨 기존 형식 명화 추천 표시:', artworks);
-                container.innerHTML = `
-                    <div class="artwork-recommendations">
-                        <h3>🎨 ${emotionText[emotion] || emotion}에 어울리는 명화 추천</h3>
-                        <div class="artwork-grid">
-                            ${artworks.map(artwork => `
-                                <div class="artwork-item" onclick="selectArtwork('${artwork.id}', '${artwork.image}')">
-                                    <img src="${artwork.image}" alt="${artwork.title}" class="artwork-thumbnail" loading="lazy">
-                                    <div class="artwork-info">
-                                        <h4>${artwork.title}</h4>
-                                        <p>${artwork.artist}</p>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                `;
-            } else {
-                console.log('🎨 명화 추천 데이터 없음');
-                container.innerHTML = `
-                    <div class="artwork-recommendations">
-                        <h3>🎨 ${emotionText[emotion] || emotion}에 어울리는 명화</h3>
-                        <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">
-                            추천할 명화를 불러오는 중입니다...
-                        </p>
-                    </div>
-                `;
+                        <h3>🎨 ${(window.emotionText?.[emotion] || emotion) ?? '추천'}</h3>
+                        <p style="text-align:center;color:var(--text-secondary);padding:2rem;">추천할 명화를 불러오는 중입니다.</p>
+                    </div>`;
+                return;
             }
+
+            const cards = artworks.map(a => {
+                const thumb = a.thumbnail || a.image;     // 표시용
+                const bg    = a.path || a.image;          // 합성용
+                const id    = a.id   || '';               // 선택적
+                const title = (a.title || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                const artist= (a.artist||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                return `
+                    <div class="artwork-item" data-bg="${encodeURI(bg)}" data-id="${encodeURIComponent(id)}" tabindex="0" role="button" aria-label="${title}">
+                        <img src="${encodeURI(thumb)}" alt="${title}" class="artwork-thumbnail" loading="lazy">
+                        <div class="artwork-info"><h4>${title}</h4><p>${artist}</p></div>
+                    </div>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="artwork-recommendations">
+                    <h3>🎨 ${(window.emotionText?.[emotion] || emotion) ?? '추천'}에 어울리는 명화</h3>
+                    <div class="artwork-grid">${cards}</div>
+                    <p style="text-align:center;color:var(--text-tertiary);font-size:.75rem;margin-top:var(--space-sm);">
+                        💡 카드를 더블클릭하면 고해상도 이미지를 볼 수 있습니다
+                    </p>
+                </div>`;
+
+            // 이벤트 위임: 클릭 시 합성 실행
+            container.querySelector('.artwork-grid')?.addEventListener('click', (e) => {
+                const item = e.target.closest('.artwork-item');
+                if (!item) return;
+                const bg = decodeURI(item.dataset.bg || '');
+                const id = decodeURIComponent(item.dataset.id || '');
+                if (window.selectArtworkByPath) return window.selectArtworkByPath(bg);
+                return window.selectArtwork?.(id || null, bg); // 하위 호환
+            }, { once: true }); // 한 번만 바인딩
         }
 
         // 1단계: 전경 + 배경 합성 (배경 제거 선행조건 제거)
@@ -3214,13 +3172,17 @@
                         }
                     })();
                     
-                    // 🎯 합성 메타데이터 저장
-                    lastNobgPath = result.compositeBase64;
-                    console.log('🔄 합성 결과 저장:', result.compositeBase64.substring(0, 50) + '...');
+                    // 🎯 합성 메타데이터 저장 (브러시 효과용 nobg를 우선)
+                    lastNobgPath = result.nobgPath
+                      || (bgRemovedBase64 || null)   // 배경 제거가 있으면 그것을 nobg로 간주
+                      || null;                       // 없으면 브러시 버튼 노출하지 않음
+                    console.log('🔄 합성 결과 저장:', lastNobgPath ? lastNobgPath.substring(0, 50) + '...' : 'null');
+                    // 합성 직전 UI 진행 보장
+                    resultSection.style.display = 'block';
+                    
                     previewImage.onload = () => {
                         const logMsg = result.imageBase64 ? 'Base64 이미지' : (result.processedImageUrl || result.url || 'unknown');
                         console.log('✅ 미리보기 이미지 로드 성공:', logMsg);
-                        resultSection.style.display = 'block';
                         // 브러쉬 결과가 있으면 유지, 없으면 숨기기
                         if (!brushResultImage.src || brushResultImage.src === '') {
                             brushResultSection.style.display = 'none';
@@ -3265,8 +3227,12 @@
                         }
                     }
                     
-                    // 브러쉬 효과 버튼 표시
-                    showBrushEffectButton(result.nobgPath, backgroundImage, result.emotion);
+                    // 브러쉬 효과 버튼 표시 (nobg가 있을 때만)
+                    if (result.nobgPath || bgRemovedBase64) {
+                        showBrushEffectButton(result.nobgPath || bgRemovedBase64, backgroundImage, result.emotion);
+                    } else {
+                        hideBrushEffectButton();
+                    }
                     
                     // 1단계 완료 메시지
                     showMessage('배경 합성이 완료되었습니다! 인물브러쉬효과를 적용해보세요.', 'success');
@@ -4631,4 +4597,5 @@
     
     </script>
 </body>
+</html> 
 </html> 
