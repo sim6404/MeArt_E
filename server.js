@@ -7,10 +7,12 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const Jimp = require('jimp');
 
 // == 진단 시스템: 버전/라우트/캐시 정보 ==
-const GIT_REV = process.env.GIT_REV || process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || 'unknown';
+const { execSync } = require('node:child_process');
+const GIT_REV = process.env.GIT_REV || process.env.RAILWAY_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || (() => {
+  try { return execSync('git rev-parse --short HEAD').toString().trim(); } catch { return 'unknown'; }
+})();
 const BUILD_AT = process.env.BUILD_AT || new Date().toISOString();
 
 function listRoutes(app) {
@@ -200,7 +202,16 @@ app.post('/api/remove-bg', upload.single('image'), async (req, res, next) => {
     // TODO: 실제 배경제거 로직 호출(외부 API/내부 처리)
     if (process.env.DEMO_DELAY_MS) await new Promise(r => setTimeout(r, Number(process.env.DEMO_DELAY_MS)));
 
-    return res.status(200).json({ ok: true, size: input.length });
+    // 클라이언트 호환성을 위한 응답 형식
+    // 실제 배경 제거가 구현되면 여기서 처리된 이미지 URL을 반환
+    const demoImageUrl = '/logo_icon.png'; // 데모용 이미지
+    
+    return res.status(200).json({ 
+      ok: true, 
+      size: input.length,
+      processedImageUrl: demoImageUrl,
+      url: demoImageUrl
+    });
   } catch (e) { next(e); }
 });
 
@@ -319,6 +330,7 @@ app.post(analyzePaths, uploadAnalyze.single('image'), async (req, res, next) => 
     // TODO: 실제 감정 분석 로직 호출
     const result = {
       dominant: 'neutral',
+      emotion: 'neutral', // 클라이언트 호환성을 위해 추가
       scores: { neutral: 0.9, happy: 0.05, sad: 0.03, angry: 0.02 },
     };
 
@@ -326,7 +338,8 @@ app.post(analyzePaths, uploadAnalyze.single('image'), async (req, res, next) => 
     return res.status(200).json({
       ok: true,
       source,
-      result
+      result,
+      emotion: 'neutral' // 클라이언트 호환성을 위해 추가
     });
   } catch (e) { next(e); }
 });
@@ -334,6 +347,50 @@ app.post(analyzePaths, uploadAnalyze.single('image'), async (req, res, next) => 
 app.all(analyzePaths, (req, res, next) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'method not allowed', allow: ['POST'] });
   next();
+});
+
+// == 진단 엔드포인트 ==
+app.get('/__version', (req, res) => res.json({ 
+  ok: true, 
+  git: GIT_REV, 
+  buildAt: BUILD_AT, 
+  node: process.version, 
+  cwd: process.cwd(), 
+  env: process.env.NODE_ENV, 
+  tid: req.__tid 
+}));
+
+app.get('/__routes', (req, res) => res.json({ 
+  ok: true, 
+  routes: listRoutes(app), 
+  tid: req.__tid 
+}));
+
+app.get('/__whoami', (req, res) => {
+  res.type('text/plain');
+  res.send(`cwd=${process.cwd()}\nmain=${require.main?.filename}\npid=${process.pid}\nnode=${process.version}\nstartedAt=${BUILD_AT}\ngit=${GIT_REV}\n`);
+});
+
+// == 정적 BG_image 실재 검사(디버그용) ==
+app.get('/__bg-exists', (req, res) => {
+  const name = String(req.query.name || '');
+  const p = path.join(process.cwd(), 'public', 'BG_image', name);
+  res.json({ ok: !!(name && fs.existsSync(p)), path: `/public/BG_image/${name}` });
+});
+
+// == 런타임 가드: /undefined 요청 차단 ==
+app.use((req, res, next) => {
+  if (req.path === '/undefined' || /\/undefined(\?|$)/.test(req.url)) {
+    return res.status(400).json({ ok: false, error: 'bad_request:undefined_path' });
+  }
+  next();
+});
+
+// == 스피너/로고 404 방어(없으면 data URI로 대체) ==
+app.get(['/spinner.gif', '/spinner.svg'], (req, res) => {
+  const sp = path.join(process.cwd(), 'public', 'spinner.svg');
+  if (fs.existsSync(sp)) return res.sendFile(sp);
+  res.type('image/svg+xml').send(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><circle cx="20" cy="20" r="18" stroke="#999" stroke-width="4" fill="none"><animate attributeName="stroke-dasharray" values="0,113;113,0;0,113" dur="1.2s" repeatCount="indefinite"/></circle></svg>`);
 });
 
 // favicon 소음 제거

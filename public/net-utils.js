@@ -1,5 +1,5 @@
 // public/net-utils.js - 안전한 네트워크 호출 유틸
-export async function safeFetchJson(url, opt = {}, timeoutMs = 8000) {
+async function safeFetchJson(url, opt = {}, timeoutMs = 8000) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -17,7 +17,7 @@ export async function safeFetchJson(url, opt = {}, timeoutMs = 8000) {
   }
 }
 
-export async function safeFetchImage(url, timeoutMs = 8000) {
+async function safeFetchImage(url, timeoutMs = 8000) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {

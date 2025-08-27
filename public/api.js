@@ -1,5 +1,5 @@
 // Railway 최적화된 API 헬퍼 함수들
-export function apiBase() {
+function apiBase() {
   const envBase =
     window.__API_BASE_URL__ ||
     (window.env && (window.env.API_BASE_URL || window.env.VITE_API_URL)) ||
@@ -8,7 +8,7 @@ export function apiBase() {
   return (envBase || window.location.origin).replace(/\/$/, '');
 }
 
-export async function waitForReady({ maxWaitMs = 60000, baseDelay = 300 } = {}) {
+async function waitForReady({ maxWaitMs = 60000, baseDelay = 300 } = {}) {
   const base = apiBase(); 
   const url = `${base}/readyz`;
   const start = Date.now(); 
@@ -33,7 +33,7 @@ export async function waitForReady({ maxWaitMs = 60000, baseDelay = 300 } = {}) 
   return false;
 }
 
-export async function callRemoveBg({ file, imageBase64 }) {
+async function callRemoveBg({ file, imageBase64 }) {
   const url = `${apiBase()}/api/remove-bg`;
   let res;
   
@@ -59,7 +59,7 @@ export async function callRemoveBg({ file, imageBase64 }) {
   }
 }
 
-export async function callAnalyzeEmotion({ file, imageBase64 }) {
+async function callAnalyzeEmotion({ file, imageBase64 }) {
   const url = `${apiBase()}/api/analyze-emotion`;
   let res;
   
@@ -85,7 +85,7 @@ export async function callAnalyzeEmotion({ file, imageBase64 }) {
   }
 }
 
-export async function callComposite({ fgBase64, fgUrl, bgKey, bgUrl, mode='contain', out='png' }) {
+async function callComposite({ fgBase64, fgUrl, bgKey, bgUrl, mode='contain', out='png' }) {
   const url = `${apiBase()}/api/composite`;
   const res = await fetch(url, {
     method: 'POST',
@@ -194,4 +194,13 @@ if (typeof window !== 'undefined') {
   window.callRemoveBg = callRemoveBg;
   window.callAnalyzeEmotion = callAnalyzeEmotion;
   window.callComposite = callComposite;
+  
+  // 디버깅을 위한 전역 함수들
+  console.log('🔧 API 함수들이 전역에 노출되었습니다:', {
+    apiBase: typeof window.apiBase,
+    waitForReady: typeof window.waitForReady,
+    callRemoveBg: typeof window.callRemoveBg,
+    callAnalyzeEmotion: typeof window.callAnalyzeEmotion,
+    callComposite: typeof window.callComposite
+  });
 }

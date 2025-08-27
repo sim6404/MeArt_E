@@ -12,8 +12,16 @@
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
     <script src="firebase-config.js"></script>
-    <script src="api.js"></script>
-    <script src="net-utils.js"></script>
+    <script>window.__BUILD_ID__ = "2025-08-27T08:32:12.715Z"; console.log('BUILD', window.__BUILD_ID__);</script>
+    <script type="module">
+      import { installUndefinedFetchGuardOnce, hardHideIntroShowMain, commitPreviewAtomic } from './src/hard-unlock-ui.js';
+      window.installUndefinedFetchGuardOnce = installUndefinedFetchGuardOnce;
+      window.hardHideIntroShowMain = hardHideIntroShowMain;
+      window.commitPreviewAtomic = commitPreviewAtomic;
+      installUndefinedFetchGuardOnce();
+    </script>
+    <script src="api.js?v=2"></script>
+    <script src="net-utils.js?v=2"></script>
     
     <!-- 🔧 디버그 시스템 + SW 무력화 + 상태머신 가드 제거 -->
     <script>
@@ -23,6 +31,36 @@
       if ('serviceWorker' in navigator && (qs.get('debug')==='1' || (window.__CONFIG__&&window.__CONFIG__.FORCE_SW_DISABLE))) {
         navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.unregister()))).then(()=>caches?.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k))))).then(()=>console.warn('[SW] unregistered + caches cleared'));
       }
+      
+      // ▼ 강제 캐시 무효화 (모든 캐시 삭제)
+      if (caches) {
+        caches.keys().then(keys => {
+          keys.forEach(key => {
+            console.log('🧹 캐시 삭제:', key);
+            caches.delete(key);
+          });
+        });
+      }
+      
+      // ▼ 클라이언트 최초 부팅시 "/undefined" 요청 방지용 전역 패치
+      const _fetch = window.fetch;
+      window.fetch = async function(u, opt) {
+        if (typeof u === 'string' && /\/undefined(\?|$)/.test(u)) {
+          console.warn('[guard] blocked fetch', u);
+          return new Response(JSON.stringify({ok:false,error:'blocked_undefined'}), {
+            status: 400, 
+            headers: {'content-type':'application/json'}
+          });
+        }
+        return _fetch.apply(this, arguments);
+      };
+      
+      // ▼ 안전한 URL 결합 함수
+      window.safeConcatUrl = function(u) {
+        if (!u || typeof u !== 'string') return null;
+        if (u === 'undefined' || /\/undefined(\?|$)/.test(u)) return null;
+        return u + (u.includes('?') ? '&' : '?') + 't=' + Date.now();
+      };
       // ▼ 2) 전역 오류/거부 트랩
       window.addEventListener('error', e=>console.error('[window.error]', e.error||e.message));
       window.addEventListener('unhandledrejection', e=>console.error('[unhandledrejection]', e.reason));
@@ -2765,152 +2803,79 @@
 
         async function removeBackgroundInternal() {
             try {
-                // 🔧 서버 준비 상태 확인 (교착 방지)
-                console.log('🔍 서버 준비 상태 확인 중...');
-                const isServerReady = await waitForReady({ maxWaitMs: 10000 }); // 10초로 단축
+                console.log('🔄 새로운 API 함수로 배경 제거 시작');
                 
-                if (!isServerReady) {
-                    console.log('⚠️ 서버 준비 확인 실패 — degraded mode로 진행');
-                    // 교착 방지: 서버 준비 실패해도 계속 진행
-                }
-                
-                // AI 상태 확인 (정보 제공용, 앱 부트는 차단하지 않음)
-                const base = window.apiBase ? window.apiBase() : window.location.origin;
-                await checkServerStatus(base);
-                
-                console.log('✅ 서버 준비 확인 완료, API 호출 시작');
-                
-                const formData = new FormData();
-                formData.append('image', currentFile);
-                
-                const headers = {};
-                if (authToken) {
-                    headers['Authorization'] = `Bearer ${authToken}`;
-                }
-                
-                // 🔧 동적 API URL 사용 (Railway/Render 호환)
-                const apiUrl = window.apiBase ? `${window.apiBase()}/api/remove-bg` : '/api/remove-bg';
-                
-                console.log('🌐 API 호출 URL:', apiUrl);
-                
-                // 🔧 안전한 API 호출 (타임아웃 + 폴백)
-                let response;
-                try {
-                    if (window.safeFetchJson) {
-                        response = await window.safeFetchJson(apiUrl, {
-                            method: 'POST',
-                            headers,
-                            body: formData
-                        }, 12000);
-                    } else {
-                        const res = await fetch(apiUrl, {
-                            method: 'POST',
-                            headers,
-                            body: formData
-                        });
-                        const text = await res.text();
-                        const json = JSON.parse(text);
-                        if (!res.ok || json?.ok === false) throw new Error(json?.error || `remove-bg ${res.status}`);
-                        response = json;
-                    }
-                } catch (e) {
-                    console.warn('⚠️ remove-bg API 호출 실패:', e.message);
-                    // 교착 방지: API 실패해도 원본 이미지로 계속 진행
-                    return { ok: false, reason: e.message, fallback: true };
-                }
-
-                // 🔧 성공 응답 처리
-                if (response && response.ok !== false) {
-                    processedImageUrl = response.processedImageUrl || response.url; // 반드시 서버 URL
-                    if (processedImage) processedImage.src = processedImageUrl;
+                // 새로운 API 함수 사용
+                if (window.callRemoveBg) {
+                    const response = await window.callRemoveBg({ file: currentFile });
                     
-                    // 서버 파일 URL에서 blob을 다시 받아서 nobgBlob 세팅
-                    try {
-                        const blobResp = await fetch(processedImageUrl, { cache: 'reload' });
-                        let contentType = blobResp.headers.get('content-type');
-                        if (!contentType || !contentType.startsWith('image/')) {
-                            // 재시도
-                            const retryResp = await fetch(processedImageUrl, { cache: 'no-store' });
-                            contentType = retryResp.headers.get('content-type');
-                            if (contentType && contentType.startsWith('image/')) {
-                                nobgBlob = await retryResp.blob();
-                            } else {
-                                console.warn('⚠️ 배경 제거 결과가 이미지가 아님 — 원본 사용');
-                                return { ok: false, reason: 'invalid image response', fallback: true };
-                            }
-                        } else {
-                            nobgBlob = await blobResp.blob();
+                    if (response && response.ok !== false) {
+                        processedImageUrl = response.processedImageUrl || response.url;
+                        if (processedImage) {
+                            processedImage.src = processedImageUrl;
+                            processedImage.style.display = 'block';
                         }
-                        if (processedImage) processedImage.style.display = 'block';
-                        return { ok: true, data: response };
-                    } catch (blobError) {
-                        console.warn('⚠️ blob 처리 실패:', blobError.message);
-                        return { ok: false, reason: blobError.message, fallback: true };
+                        
+                        // 서버 파일 URL에서 blob을 다시 받아서 nobgBlob 세팅
+                        try {
+                            const blobResp = await fetch(processedImageUrl, { cache: 'reload' });
+                            let contentType = blobResp.headers.get('content-type');
+                            if (!contentType || !contentType.startsWith('image/')) {
+                                // 재시도
+                                const retryResp = await fetch(processedImageUrl, { cache: 'no-store' });
+                                contentType = retryResp.headers.get('content-type');
+                                if (contentType && contentType.startsWith('image/')) {
+                                    nobgBlob = await retryResp.blob();
+                                } else {
+                                    console.warn('⚠️ 배경 제거 결과가 이미지가 아님 — 원본 사용');
+                                    return { ok: false, reason: 'invalid image response', fallback: true };
+                                }
+                            } else {
+                                nobgBlob = await blobResp.blob();
+                            }
+                            return { ok: true, data: response };
+                        } catch (blobError) {
+                            console.warn('⚠️ blob 처리 실패:', blobError.message);
+                            return { ok: false, reason: blobError.message, fallback: true };
+                        }
+                    } else {
+                        console.warn('⚠️ remove-bg 응답이 성공이 아님:', response);
+                        return { ok: false, reason: 'api response not ok', fallback: true };
                     }
                 } else {
-                    console.warn('⚠️ remove-bg 응답이 성공이 아님:', response);
-                    return { ok: false, reason: 'api response not ok', fallback: true };
+                    console.warn('⚠️ window.callRemoveBg 함수를 찾을 수 없음 — 폴백 모드');
+                    return { ok: false, reason: 'API function not available', fallback: true };
                 }
             } catch (error) {
                 console.error('❌ removeBackgroundInternal 오류:', error);
-                
-                // 네트워크 오류 특별 처리 (Failed to fetch, QUIC Protocol Error 등)
-                if (error.name === 'TypeError' && (error.message.includes('Failed to fetch') || error.message.includes('QUIC_PROTOCOL_ERROR'))) {
-                    console.error('🌐 네트워크 연결 오류 - 서버에 연결할 수 없습니다');
-                    return { ok: false, reason: 'network error', fallback: true };
-                }
-                
                 return { ok: false, reason: error.message, fallback: true };
             }
         }
 
         async function analyzeEmotionInternal() {
             try {
-                const formData = new FormData();
-                formData.append('image', currentFile);
+                console.log('🔄 새로운 API 함수로 감정 분석 시작');
                 
-                // 🔧 동적 API URL 사용 (Railway/Render 호환)
-                const emotionApiUrl = window.apiBase ? `${window.apiBase()}/analyze-emotion` : '/analyze-emotion';
-                
-                console.log('🌐 감정 분석 API 호출 URL:', emotionApiUrl);
-                
-                const response = await fetch(emotionApiUrl, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                console.log('🔎 감정 분석 응답 상태 코드:', response.status);
-
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.warn('⚠️ 감정 분석 응답 오류:', errorText);
-                    // 교착 방지: 에러를 던지지 않고 null 반환
-                    return null;
-                }
-
-                // 🔧 감정 분석 JSON 파싱 강화
-                let result;
-                try {
-                    result = await response.json();
-                    console.log('✅ 감정 분석 응답 파싱 성공:', result);
-                } catch (err) {
-                    console.warn('⚠️ 감정 분석 JSON 파싱 실패:', err);
-                    // 교착 방지: 파싱 실패해도 null 반환
-                    return null;
-                }
-
-                if (result && result.emotion) {
-                    // 🎯 현재 감정 정보 저장
-                    currentEmotion = result.emotion;
-                    console.log('😊 현재 감정 업데이트:', currentEmotion);
+                // 새로운 API 함수 사용
+                if (window.callAnalyzeEmotion) {
+                    const result = await window.callAnalyzeEmotion({ file: currentFile });
                     
-                    // 감정 피드백 표시 (선택적)
-                    if (result.feedback) {
-                        showEmotionFeedback(result.emotion, result.feedback);
+                    if (result && result.emotion) {
+                        // 🎯 현재 감정 정보 저장
+                        currentEmotion = result.emotion;
+                        console.log('😊 현재 감정 업데이트:', currentEmotion);
+                        
+                        // 감정 피드백 표시 (선택적)
+                        if (result.feedback) {
+                            showEmotionFeedback(result.emotion, result.feedback);
+                        }
+                        return result;
+                    } else {
+                        console.warn('⚠️ 감정 분석 결과가 올바르지 않음:', result);
+                        return null;
                     }
-                    return result;
                 } else {
-                    console.warn('⚠️ 감정 분석 결과가 올바르지 않음:', result);
+                    console.warn('⚠️ window.callAnalyzeEmotion 함수를 찾을 수 없음 — 폴백 모드');
                     return null;
                 }
             } catch (error) {
@@ -2924,108 +2889,106 @@
         const ARTWORKS_BY_EMOTION = {
             happy: [
                 {
-                    id: 'breezing_up',
-                    title: '바람을 타고',
-                    artist: 'Winslow Homer',
-                    image: '/BG_image/breezing_up_a_fair_wind_1943.13.1.jpg',
-
+                    id: 'hampton',
+                    title: '초록정원',
+                    artist: 'hampton',
+                    image: '/BG_image/hampton_court_green_1970.17.53.jpg'
                 },
                 {
-                    id: 'dance_hall',
-                    title: '댄스 홀',
-                    artist: 'Pierre-Auguste Renoir',
-                    image: '/BG_image/dance_hall_bellevue_obverse_1989.60.1.a.jpg'
+                    id: 'normandy',
+                    title: '노르망디 해변',
+                    artist: 'bessin',
+                    image: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg'
                 },
                 {
-                    id: 'harvest',
-                    title: '수확',
+                    id: 'farmhouse_provence',
+                    title: '프로방스의 농가',
                     artist: 'Vincent van Gogh',
-                    image: '/BG_image/the_harvest_1985.64.91.jpg'
+                    image: '/BG_image/farmhouse_in_provence_1970.17.34.jpg'
                 },
                 {
-                    id: 'orchard',
-                    title: '꽃 핀 과수원',
-                    artist: 'Alfred Sisley',
-                    image: '/BG_image/orchard_in_bloom_louveciennes_1970.17.51.jpg'
+                    id: 'harbor_lorient',
+                    title: '로리앙 항구',
+                    artist: 'Berthe Morisot',
+                    image: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg'
                 }
             ],
             sad: [
                 {
-                    id: 'crucifixion',
-                    title: '작은 십자가',
-                    artist: 'Grunewald',
-                    image: '/BG_image/the_small_crucifixion_1961.9.19.jpg',
-
+                    id: 'hampton',
+                    title: '초록정원',
+                    artist: 'hampton',
+                    image: '/BG_image/hampton_court_green_1970.17.53.jpg'
                 },
                 {
-                    id: 'evening_deluge',
-                    title: '대홍수의 저녁',
-                    artist: 'John Martin',
-                    image: '/BG_image/the_evening_of_the_deluge_1960.6.40.jpg'
+                    id: 'normandy',
+                    title: '노르망디 해변',
+                    artist: 'bessin',
+                    image: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg'
                 },
                 {
-                    id: 'ships_distress',
-                    title: '위험에 처한 배들',
-                    artist: 'Claude-Joseph Vernet',
-                    image: '/BG_image/ships_in_distress_off_a_rocky_coast_1985.29.1.jpg'
+                    id: 'farmhouse_provence',
+                    title: '프로방스의 농가',
+                    artist: 'Vincent van Gogh',
+                    image: '/BG_image/farmhouse_in_provence_1970.17.34.jpg'
                 },
                 {
-                    id: 'sebastian',
-                    title: '성 세바스티안',
-                    artist: 'Georges de La Tour',
-                    image: '/BG_image/saint_sebastian_succored_by_the_holy_women_1960.6.4.jpg'
+                    id: 'harbor_lorient',
+                    title: '로리앙 항구',
+                    artist: 'Berthe Morisot',
+                    image: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg'
                 }
             ],
             angry: [
                 {
-                    id: 'devil_words',
-                    title: '악마의 말',
-                    artist: 'Paul Gauguin',
-                    image: '/BG_image/parau_na_te_varua_ino_words_of_the_devil_1972.9.12.jpg'
+                    id: 'hampton',
+                    title: '초록정원',
+                    artist: 'hampton',
+                    image: '/BG_image/hampton_court_green_1970.17.53.jpg'
                 },
                 {
-                    id: 'battle_love',
-                    title: '사랑의 전투',
-                    artist: 'Nicolas Poussin',
-                    image: '/BG_image/the_battle_of_love_1972.9.2.jpg'
+                    id: 'normandy',
+                    title: '노르망디 해변',
+                    artist: 'bessin',
+                    image: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg'
                 },
                 {
-                    id: 'tiger_snake',
-                    title: '호랑이와 뱀',
-                    artist: 'Henri Rousseau',
-                    image: '/BG_image/tiger_and_snake_2014.136.30.jpg'
+                    id: 'farmhouse_provence',
+                    title: '프로방스의 농가',
+                    artist: 'Vincent van Gogh',
+                    image: '/BG_image/farmhouse_in_provence_1970.17.34.jpg'
                 },
                 {
-                    id: 'scenes_legend',
-                    title: '전설의 장면',
-                    artist: 'Unknown',
-                    image: '/BG_image/scenes_from_a_legend_1939.1.344.b.jpg'
+                    id: 'harbor_lorient',
+                    title: '로리앙 항구',
+                    artist: 'Berthe Morisot',
+                    image: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg'
                 }
             ],
             surprised: [
                 {
-                    id: 'bathers',
-                    title: '목욕하는 사람들',
-                    artist: 'Paul Cézanne',
-                    image: '/BG_image/the_bathers_1951.5.1.jpg'
+                    id: 'hampton',
+                    title: '초록정원',
+                    artist: 'hampton',
+                    image: '/BG_image/hampton_court_green_1970.17.53.jpg'
                 },
                 {
-                    id: 'festival_harbor',
-                    title: '항구의 축제',
-                    artist: 'Eugène Boudin',
-                    image: '/BG_image/festival_in_the_harbor_of_honfleur_1983.1.10.jpg'
+                    id: 'normandy',
+                    title: '노르망디 해변',
+                    artist: 'bessin',
+                    image: '/BG_image/seascape_at_port-en-bessin_normandy_1972.9.21.jpg'
                 },
                 {
-                    id: 'colza_harvest',
-                    title: '유채 수확',
+                    id: 'farmhouse_provence',
+                    title: '프로방스의 농가',
                     artist: 'Vincent van Gogh',
-                    image: '/BG_image/the_colza_harvesting_rapeseed_2014.136.21.jpg'
+                    image: '/BG_image/farmhouse_in_provence_1970.17.34.jpg'
                 },
                 {
-                    id: 'dance_class',
-                    title: '댄스 클래스',
-                    artist: 'Edgar Degas',
-                    image: '/BG_image/the_dance_class_2014.79.710.jpg'
+                    id: 'harbor_lorient',
+                    title: '로리앙 항구',
+                    artist: 'Berthe Morisot',
+                    image: '/BG_image/the_harbor_at_lorient_1970.17.48.jpg'
                 }
             ],
             neutral: [
@@ -3192,7 +3155,7 @@
             hideMessage();
 
             previewImage.src = '';
-            previewImage.style.background = 'url(/spinner.gif) center center no-repeat';
+            previewImage.style.background = 'url(/spinner.svg) center center no-repeat';
             previewImage.style.minHeight = '120px';
 
             try {
@@ -3226,15 +3189,36 @@
                 if (result.ok && result.compositeBase64) {
                     console.log('✅ 합성 성공:', result.meta);
                     
-                    // 1단계 결과 표시 (Base64 이미지 직접 사용)
-                    previewImage.src = result.compositeBase64;
-                    previewImage.style.display = 'block';
+                    // 🎯 원자적 커밋으로 미리보기 반영
+                    window.__lastCompositeResult = result;
+                    window.__originalBase64 = originalBase64;
+                    
+                    (async () => {
+                        try {
+                            // 서버가 어떤 키를 주든 안전하게 선택
+                            const compositeSrc =
+                                result?.compositeBase64 ||
+                                result?.fgImage ||    // 현재 콘솔 로그에 존재
+                                result?.resultBase64 ||
+                                (typeof result === 'string' && result.startsWith('data:') ? result : null);
+
+                            const ok = await window.commitPreviewAtomic(compositeSrc);
+                            if (!ok) {
+                                console.warn('[flow] composite commit skipped, fallback to original');
+                                // 원본으로라도 화면 전환
+                                await window.commitPreviewAtomic(window.__originalBase64 || window?.state?.originalBase64);
+                            }
+                        } catch (e) {
+                            console.error('[flow.commit.error]', e);
+                            await window.commitPreviewAtomic(window.__originalBase64 || window?.state?.originalBase64);
+                        }
+                    })();
                     
                     // 🎯 합성 메타데이터 저장
                     lastNobgPath = result.compositeBase64;
                     console.log('🔄 합성 결과 저장:', result.compositeBase64.substring(0, 50) + '...');
                     previewImage.onload = () => {
-                        const logMsg = result.imageBase64 ? 'Base64 이미지' : result.processedImageUrl;
+                        const logMsg = result.imageBase64 ? 'Base64 이미지' : (result.processedImageUrl || result.url || 'unknown');
                         console.log('✅ 미리보기 이미지 로드 성공:', logMsg);
                         resultSection.style.display = 'block';
                         // 브러쉬 결과가 있으면 유지, 없으면 숨기기
@@ -3398,7 +3382,7 @@
                         const brushTimestamp = Date.now();
                         const brushRandom = Math.random().toString(36).substr(2, 9);
                         const brushCacheBuster = `?nocache=${brushTimestamp}&r=${brushRandom}&reload=1&force=${Math.floor(Math.random() * 1000000)}`;
-                        const brushImageUrl = result.processedImageUrl + brushCacheBuster;
+                        const brushImageUrl = (result.processedImageUrl || result.url || '') + brushCacheBuster;
                         
                         console.log('브러시 이미지 로드 시도 (강력한 캐시 무효화):', brushImageUrl);
                         
@@ -3418,7 +3402,7 @@
                         brushResultImage.onerror = () => {
                             console.log('⚠️ 브러시 이미지 로드 이벤트 에러 (무시)');
                         };
-                        downloadLink.href = result.processedImageUrl; // 다운로드는 원본 URL 사용 (캐시 버스터 불필요)
+                        downloadLink.href = result.processedImageUrl || result.url || ''; // 다운로드는 원본 URL 사용 (캐시 버스터 불필요)
                     
                     // 브러쉬 효과 버튼 숨기기
                     hideBrushEffectButton();

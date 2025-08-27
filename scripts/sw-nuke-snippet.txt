@@ -1,0 +1,17 @@
+(async()=>{ 
+  console.log('[SW] unregister & clear caches'); 
+  const regs=await navigator.serviceWorker?.getRegistrations?.(); 
+  if(regs){ 
+    for(const r of regs){ 
+      await r.unregister(); 
+    } 
+  } 
+  if('caches' in window){ 
+    const ks=await caches.keys(); 
+    for(const k of ks){ 
+      await caches.delete(k); 
+    } 
+  } 
+  console.log('[SW] done. hard reload…'); 
+  location.reload(true); 
+})();
